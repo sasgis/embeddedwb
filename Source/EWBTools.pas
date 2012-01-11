@@ -18,12 +18,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -34,12 +34,11 @@ You may use, change or modify the component under 4 conditions:
 4. Please,  consider donation in our web site!
 {*******************************************************************************}
 
-
 unit EwbTools;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   EwbAcc, Windows, Classes, ExtCtrls, ShlObj, Graphics, Dialogs, ActiveX,
@@ -52,7 +51,6 @@ var
 //Document and Frame
 function DocumentLoaded(Document: IDispatch): Boolean;
 procedure AssignEmptyDocument(WebBrowser: TEmbeddedWB);
-function GetDocument(WebBrowser: TEmbeddedWB): IHTMLDocument2;
 
 //Html
 function AddHtmlToAboutBlank(WebBrowser: TEmbeddedWB; StringToHtml: string): Boolean;
@@ -64,7 +62,7 @@ function GetWordAtCursor(const X, Y: Integer; WebBrowser: TEmbeddedWB): string;
 function GetFrame(Document: IDispatch; FrameNo: Integer): IWebBrowser2;
 function GetFrameFromDocument(SourceDoc: IHTMLDocument2; FrameNo: Integer): IWebBrowser2; //By Aladin
 function FrameCount(Document: IDispatch): Longint;
-function FrameCountFromDocument(SourceDoc: IHtmlDocument2): Integer; //By Aladin
+function FrameCountFromDocument(SourceDoc: IHTMLDocument2): Integer; //By Aladin
 
 //Document Operations
 procedure SetFocusToDoc(WebBrowser: TEmbeddedWB; Dispatch, Document: IDispatch);
@@ -181,11 +179,23 @@ procedure SendUrlInMail(LocationURL, LocationName: WideString);
 function SearchString(Webbrowser: TEmbeddedWB; const strText: string): Boolean;
 //function SearchText(WebBrowser: TEmbeddedWB; Document: IDispatch; const Value: string; const iPos: Integer = 1): IHTMLTxtRange;
 function SearchText(WebBrowser: TEmbeddedWB; Document: IDispatch; const Value: string; aTypeSearch: Integer; const iPos: Integer = 1): IHTMLTxtRange;
-procedure SearchAndHighlight(Document: IDispatch; const ACaption, APrompt: string; aText: string = ''; ShowInputQuery: Boolean = False);
+
+procedure SearchAndHighlight(Document: IDispatch;
+  AText: string; const ACaption, APrompt: string; Flags: TSearchFlags = [];
+  cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll; ShowInputQuery: Boolean = True); overload;
+
+procedure SearchAndHighlight(Document: IDispatch; aText: string; Flags: TSearchFlags = [];
+ cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll); overload;
 
 procedure SetTextAreaValue(Document: IDispatch; sName, sValue: string; Options: TFindOptions);
-function FillForm(WebBrowser: TEmbeddedWB; FieldName, FieldValue: string): Boolean; overload;
+function FillForm(WebBrowser: TEmbeddedWB; FieldName, FieldValue: string; ElementNr: Integer = -1): Boolean; overload;
+function FillForm(Document: IDispatch; FieldName: string; FieldValue: string; ElementNr: Integer = -1): Boolean; overload;
+
 function FillForm(WebBrowser: TEmbeddedWB; FieldName: string; FieldValue: string; Value: Boolean): Boolean; overload;
+
+
 function GetFieldValue(OleObject: Variant; FieldName: string): string;
 procedure ClickInputImage(WebBrowser: TEmbeddedWB; ImageURL: string);
 
@@ -215,7 +225,7 @@ function GetSSLStatus(OleObject: Variant; LocationURL: string; var SSLName, SSLD
 function GetUrlSecurityZone(LocationURL: string; var ZoneName, ZoneDescription: string; var Icon: TIcon): Boolean;
 
 //Proxy & User agent
-function SetProxy(UserAgent, Address: string): Boolean; overload;
+function SetProxy(UserAgent, Address, Bypass: string): Boolean; overload;
 function SetProxy(UserAgent, Address, UserName, Password: string; Port: Integer): Boolean; overload;
 function SetProxyFromPAC(UserAgent, PACFile: string): Boolean;
 
@@ -230,7 +240,6 @@ function UnregisterNameSpace: HRESULT;
 
 //Cookies
 function GetCookiesPath: string;
-function GetCookie(OleObject: Variant): string;
 procedure ClearSessionCookies;
 
 //Favorites
@@ -281,7 +290,7 @@ function ExtractUrl(ShellFolder: IShellFolder; pidl: PItemIDList): string;
 function GetDisplayName(Folder: IShellFolder; pidl: PItemIDList): string;
 function GetFileName(Folder: IShellFolder; pidl: PItemIDList): string;
 function GetIEVersion: string;
-function GetIEVersionMajor: string;
+function GetIEVersionMajor: Integer;
 function GetImageIndex(pidl: PItemIDList): Integer;
 function GetMailClients: TStrings;
 function GetPIDLSize(IDList: PItemIDList): Integer;
@@ -289,6 +298,10 @@ function IE5_Installed: Boolean;
 function IsChannel(ChannelShortcut: string; ShellFolder: IShellFolder; ID: PItemIDList): Boolean;
 function IsFolder(ShellFolder: IShellFolder; ID: PItemIDList): Boolean;
 function IsFolderEx(ChannelShortcut: string; ShellFolder: IShellFolder; ID: PItemIDList): Boolean;
+
+
+
+
 function NextPIDL(IDList: PItemIDList): PItemIDList;
 function ResolveChannel(pFolder: IShellFolder; pidl: PItemIDList; var lpszURL: string): HRESULT;
 function ResolveLink(const Path: string): string;
@@ -311,7 +324,7 @@ implementation
 uses
   Registry, ShellAPI, Controls, Messages, Forms, SysUtils,
   OleCtrls, WinInet, SendMail_For_EWB, ComObj, IEConst, IniFiles, JPEG, WinSock,
-  Wcrypt2, EwbCoreTools, Browse4Folder;
+  Wcrypt2, Browse4Folder, EWBCoreTools;
 
 type
   OSVERSIONINFOEX = packed record
@@ -483,7 +496,7 @@ var
 begin
   Result := False;
   URL := SysUtils.LowerCase(URL);
-  for I := 1 to 11 do
+  for I := Low(Protocols) to High(Protocols) do
     if Pos(Protocols[I], URL) <> 0 then
     begin
       Result := True;
@@ -493,12 +506,12 @@ end;
 
 function DocumentLoaded(Document: IDispatch): Boolean;
 var
-  iDoc: IHtmlDocument2;
+  iDoc: IHTMLDocument2;
 begin
   Result := False;
   if Assigned(Document) then
   begin
-    Document.QueryInterface(IHtmlDocument2, iDoc);
+    Document.QueryInterface(IHTMLDocument2, iDoc);
     Result := Assigned(iDoc);
   end;
 end;
@@ -506,11 +519,6 @@ end;
 procedure AssignEmptyDocument(WebBrowser: TEmbeddedWB);
 begin
   WebBrowser.Go('about:blank');
-end;
-
-function GetDocument(WebBrowser: TEmbeddedWB): IHtmlDocument2;
-begin
-  Result := WebBrowser.Document as IHtmlDocument2;
 end;
 
 function AddHtmlToAboutBlank(WebBrowser: TEmbeddedWB; StringToHtml: string): Boolean;
@@ -573,7 +581,7 @@ begin
     if Assigned(Elem) then
     begin
       RV := (Elem as IHTMLElement2).getBoundingClientRect;
-      WebBrowser.GetDocument.parentWindow.scrollBy(RV.left, RV.top);
+      Webbrowser.Doc2.parentWindow.scrollBy(RV.left, RV.top);
     end;
   end;
 end;
@@ -607,7 +615,7 @@ begin
       if Assigned(Match) then
       begin
         RV := Match.getBoundingClientRect;
-        WebBrowser.GetDocument.parentWindow.scrollBy(RV.left, RV.top);
+        WebBrowser.Doc2.parentWindow.scrollBy(RV.left, RV.top);
       end;
     end;
   end;
@@ -694,7 +702,7 @@ function GetScrollBarPosition(WebBrowser: TEmbeddedWB; var ScrollPos: TPoint): B
   end;
 
   // Get Scrollbar X,Y Position of the HTML Document
-  function WB_GetDOCScrollPosition(WB: TEmbeddedWB; var ScrollPos: TPoint): Boolean;
+  function WB_GetDOCScrollPosition(WebBrowser: TEmbeddedWB; var ScrollPos: TPoint): Boolean;
   var
     IDoc: IHTMLDocument2;
     IDoc3: IHTMLDocument3;
@@ -799,7 +807,7 @@ begin
   end;
 end;
 
-function FrameCountFromDocument(SourceDoc: IHtmlDocument2): Integer;
+function FrameCountFromDocument(SourceDoc: IHTMLDocument2): Integer;
 var //by Aladin
   OleContainer: IOleContainer;
   enum: ActiveX.IEnumUnknown;
@@ -883,7 +891,7 @@ var
   Doc2: IHTMLDocument2;
 begin
   try
-    if Supports(Document, IHtmlDocument2, Doc2) then
+    if Supports(Document, IHTMLDocument2, Doc2) then
     begin
       // OleObject.Document.ParentWindow.ScrollTo(0, MaxInt); doesn't work in IE8
       HTMLParentWin := IHTMLWindow2((Doc2 as IHTMLDocument2).parentWindow);
@@ -953,6 +961,7 @@ begin
   end;
 end;
 
+{
 function GetCookie(OleObject: Variant): string;
 begin
   Result := '';
@@ -961,7 +970,7 @@ begin
     Result := OleObject.Document.Cookie;
   except
   end;
-end;
+end;    }
 
 procedure ClearSessionCookies;
 begin
@@ -1351,16 +1360,22 @@ end;
 procedure GetPrintValues(WebBrowser: TEmbeddedWB; PrintOptions: TPrintOptions; Measure: TMeasure);
 var
   S: string;
-  registry: TRegistry;
+  Reg: TRegistry;
+  {$IFDEF DELPHI7_UP}
+    FS: TFormatSettings;
+  {$ENDIF}
+
 
   function ReadMargin(key: string): Real;
   begin
-    S := registry.ReadString(key);
+    S := Reg.ReadString(key);
     if S = '' then
       S := '0.750000'; // <-- default margin value  by takeru_tk_81
     S := StringReplace(S, ' ', '', [rfReplaceAll]);
-    if DecimalSeparator <> '.' then
-      S := StringReplace(S, '.', DecimalSeparator, []);
+
+    if {$IFDEF DELPHI7_UP}FS.{$ENDIF}DecimalSeparator <> '.' then
+      S := StringReplace(S, '.',{$IFDEF DELPHI7_UP}FS.{$ENDIF}DecimalSeparator ,[]);
+
     if Measure = mMetric then
       Result := StrToFloat(S) * InchToMetric
     else
@@ -1368,9 +1383,9 @@ var
   end;
 
 begin
-  registry := TRegistry.Create;
+  Reg := TRegistry.Create;
   try
-    with registry do
+    with Reg do
     begin
       RootKey := HKEY_CURRENT_USER;
       if OpenKey('Software\Microsoft\Internet Explorer\PageSetup', False) then
@@ -1385,7 +1400,7 @@ begin
           Margins.Bottom := ReadMargin('margin_bottom');
         end;
       end;
-      Registry.Free;
+      Reg.Free;
     end;
   except
 
@@ -1841,12 +1856,14 @@ const
 var
   ShellUIHelper: ISHellUIHelper;
   Url1, Title1: OleVariant;
+   Res : HRESULT;
 begin
   if (Trim(URL) <> '') and (Trim(Title) <> '') then
   begin
     Title1 := Title;
     Url1 := Url;
-    CoCreateInstance(CLSID_SHELLUIHELPER, nil, CLSCTX_INPROC_SERVER, IID_IShellUIHelper, ShellUIHelper);
+    Res := CoCreateInstance(CLSID_SHELLUIHELPER, nil, CLSCTX_INPROC_SERVER, IID_IShellUIHelper, ShellUIHelper);
+    if SUCCEEDED(Res) then
     try
       ShellUIHelper.AddFavorite(URL1, Title1);
     except
@@ -1918,12 +1935,10 @@ begin
       else
         Result := '';
     finally
-      StrDispose(Buf);
+      // StrDispose(Buf);
     end;
   end;
 end;
-
-
 
 function GetIEHomePage: string;
 var
@@ -2160,45 +2175,109 @@ begin
   end;
 end;
 
-procedure SearchAndHighlight(Document: IDispatch; const ACaption, APrompt: string; aText: string = ''; ShowInputQuery: Boolean = False);
+function DoSearchAndHighlight(Document: IDispatch; sFind: string;
+  Flags: TSearchFlags = []; cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll): Integer;
 var
-  tr: IHTMLTxtRange;
-  FrameCount: Integer;
-  i: Integer;
+  Doc2: IHTMLDocument2;
+  pElem: IHTMLElement;
+  pBodyelem: IHTMLBodyElement;
+  pTxtRange: IHTMLTxtRange;
+  searchdir, searchcase, iMatches: Integer;
+begin
+  iMatches := 0;
+  if (Length(sFind) <> 0) and
+    Supports(Document, IHTMLDocument2, Doc2) then
+  begin
+    searchdir := 1;
+    searchcase := 0;
+    //Set up search case
+    if (sfMatchWholeWord in Flags) and (sfMatchCase in Flags) then
+      searchcase := 6
+    else if sfMatchWholeWord in Flags then
+      searchcase := 2
+    else if sfMatchCase in Flags then
+      searchcase := 4;
+
+    pElem := Doc2.body;
+    if (pElem <> nil) then
+    begin
+      pBodyelem := pElem as IHTMLBodyElement;
+      if (pBodyelem <> nil) then
+      begin
+        pTxtRange := pBodyelem.createTextRange();
+        if (pTxtRange <> nil) then
+        begin
+          while (pTxtRange.findText(sFind, searchdir, searchcase)) do
+          begin
+            if (cbackColor <> '') then
+              pTxtRange.execCommand('BackColor', False, cbackColor);
+            if (cForeColor <> '') then
+              pTxtRange.execCommand('ForeColor', False, cForeColor);
+            pTxtRange.moveStart('Character', 1);
+            pTxtRange.moveEnd('Textedit', 1);
+            iMatches := iMatches + 1;
+            if (iMatches = 1) and (ScrollIntoView = sivFirstMatch) then
+             pTxtRange.scrollIntoView(True);
+          end;
+          if (iMatches > 1) and (ScrollIntoView = sivLastMatch) then
+             pTxtRange.scrollIntoView(True);
+        end;
+      end;
+    end;
+  end;
+  Result := iMatches;
+end;
+
+procedure SearchAndHighlight(Document: IDispatch;
+  AText: string; const ACaption, APrompt: string; Flags: TSearchFlags = [];
+   cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll; ShowInputQuery: Boolean = True); overload;
+var
+// tr: IHTMLTxtRange;
+  FrameCount, i: Integer;
   Wb2: IWebBrowser2;
 begin
   if DocumentLoaded(Document) then
   begin
     if ShowInputQuery then
-    begin
-      if not InputQuery(ACaption, APrompt, aText) then Exit;
-    end;
+      if not InputQuery(ACaption, APrompt, AText) then Exit;
+
     if Length(aText) = 0 then Exit;
     try
       FrameCount := FrameCountFromDocument(Document as IHTMLDocument2);
       if FrameCount > 0 then
       begin
-        for i := 0 to FrameCount - 1 do
+        for i := 0 to Pred(FrameCount) do
         begin
           Wb2 := GetFrameFromDocument(Document as IHTMLDocument2, i);
           if Assigned(Wb2) then
-            SearchAndHighlight(Wb2.Document, ACaption, APrompt, aText, False);
+            SearchAndHighlight(Wb2.Document, AText, ACaption, APrompt, Flags,
+             cbackColor, cForeColor, ScrollIntoView, False);
         end;
       end
       else
       begin
-        tr := ((Document as IHTMLDocument2).body as IHTMLBodyElement).createTextRange;
+        DoSearchAndHighlight(Document, AText, Flags,
+          cbackColor, cForeColor, ScrollIntoView);
+      {  tr := ((Document as IHTMLDocument2).body as IHTMLBodyElement).createTextRange;
         while tr.findText(aText, 1, 0) do
         begin
-          tr.pasteHTML('<span style="background-color: Lime; font-weight: bolder;">' +
+          tr.pasteHTML('<span style="background-color: ' + aColor + '; font-weight: bolder;">' +
             tr.htmlText + '</span>');
           tr.scrollIntoView(True);
-        end;
+        end; }
       end;
     except
     end;
   end;
+end;
 
+procedure SearchAndHighlight(Document: IDispatch; aText: string; Flags: TSearchFlags = [];
+  cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll); overload;
+begin
+  SearchAndHighlight(Document, '', '', aText, Flags, cbackColor, cForeColor, ScrollIntoView, False);
 end;
 
 {function FillForm(OleObject: Variant; FieldName: string; Value: string): Boolean;
@@ -2235,7 +2314,7 @@ var
   field: IHTMLElement;
   textarea: IHTMLTextAreaElement;
 begin
-  if Supports(Document, IHtmlDocument2, Doc2) then
+  if Supports(Document, IHTMLDocument2, Doc2) then
     for i := 0 to Doc2.all.length - 1 do
     begin
       field := Doc2.all.item(i, '') as IHTMLElement;
@@ -2255,22 +2334,33 @@ begin
     end;
 end;
 
-function FillForm(WebBrowser: TEmbeddedWB; FieldName: string; FieldValue: string): Boolean;
+function FillForm(Document: IDispatch; FieldName: string; FieldValue: string; ElementNr: Integer = -1): Boolean; overload;
 var
-  IDoc3: IHTMLDocument3;
   Inputs: IHTMLElementCollection;
   HTMLElement: IHTMLElement;
   TagName: string;
+  k, iItemNr, iInputCount: Integer;
 begin
   Result := False;
-  if Assigned(WebBrowser.Document) and
-    (Succeeded(WebBrowser.Document.QueryInterface(IHTMLDocument3, IDoc3))) then
+  Inputs := IHTMLDocument3(Document).getElementsByName(FieldName);
+  if Assigned(Inputs) then
   begin
-    Inputs := IDoc3.getElementsByName(FieldName);
-    if Assigned(Inputs) then
-    begin
-      try
-        HTMLElement := Inputs.item(0, '') as IHTMLElement;
+    try
+      if ElementNr = -1 then
+        iInputCount := Inputs.Length
+      else
+        iInputCount := ElementNr;
+
+      if iInputCount = -1 then iInputCount := 0;
+
+      for k := 0 to iInputCount - 1 do
+      begin
+        if ElementNr = -1 then
+          iItemNr := k
+        else
+          iItemNr := ElementNr;
+
+        HTMLElement := Inputs.item(iItemNr, '') as IHTMLElement;
         if Assigned(HTMLElement) then
         begin
           TagName := AnsiUpperCase(HTMLElement.tagName);
@@ -2278,21 +2368,37 @@ begin
           begin
             (HTMLElement as IHTMLInputElement).Value := FieldValue;
             Result := True;
+            Exit;
           end
           else if TagName = 'SELECT' then
           begin
             (HTMLElement as IHTMLSelectElement).Value := FieldValue;
             Result := True;
+            Exit;
           end
           else if TagName = 'TEXTAREA' then
           begin
             (HTMLElement as IHTMLTextAreaElement).Value := FieldValue;
             Result := True;
+            Exit;
           end;
         end;
-      except
+        if ElementNr <> -1 then Exit;
       end;
+    except
     end;
+  end;
+end;
+
+function FillForm(WebBrowser: TEmbeddedWB; FieldName: string; FieldValue: string; ElementNr: Integer = -1): Boolean; overload;
+var
+  Doc3: IHTMLDocument3;
+begin
+  Result := False;
+  if Assigned(WebBrowser.Document) and
+    (Succeeded(WebBrowser.Document.QueryInterface(IHTMLDocument3, Doc3))) then
+  begin
+    Result := FillForm(Doc3, FieldName, FieldValue, ElementNr)
   end;
 end;
 
@@ -2327,7 +2433,7 @@ end;
 
 procedure ClickInputImage(WebBrowser: TEmbeddedWB; ImageURL: string);
 var
-  iDoc: IHtmlDocument2;
+  iDoc: IHTMLDocument2;
   iDisp: IDispatch;
   iColl: IHTMLElementCollection;
   InputImage: htmlInputImage;
@@ -2793,7 +2899,7 @@ begin
   end
 end;
 
-function SetProxy(UserAgent, Address: string): Boolean; // mladen
+function SetProxy(UserAgent, Address, Bypass: string): Boolean;
 var
   list: INTERNET_PER_CONN_OPTION_LIST;
   dwBufSize: DWORD;
@@ -2804,19 +2910,24 @@ begin
   dwBufSize := SizeOf(list);
   list.dwSize := SizeOf(list);
   list.pszConnection := nil;
-  list.dwOptionCount := High(Options); // the highest index of the array (in this case 3)
+  list.dwOptionCount := High(Options);
+
   Options[1].dwOption := INTERNET_PER_CONN_FLAGS;
-  Options[1].Value.dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY;
+//  Options[1].Value.dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY; //Original code
+  Options[1].dwValue := PROXY_TYPE_PROXY;
+
   Options[2].dwOption := INTERNET_PER_CONN_PROXY_SERVER;
-  Options[2].Value.pszValue := PAnsiChar(AnsiString(Address));
+  Options[2].pszValue := PChar(Address);
+
   Options[3].dwOption := INTERNET_PER_CONN_PROXY_BYPASS;
-  Options[3].Value.pszValue := '<local>';
+  Options[3].pszValue := PChar(Bypass);
+  ShowMessage(Bypass);
   list.pOptions := @Options;
   hInternet := InternetOpen(PChar(UserAgent), INTERNET_OPEN_TYPE_DIRECT, nil, nil, 0);
   if hInternet <> nil then
   try
-    Result := InternetSetOption(hInternet, INTERNET_OPTION_PER_CONNECTION_OPTION, @list, dwBufSize);
-    Result := Result and InternetSetOption(hInternet, INTERNET_OPTION_REFRESH, nil, 0);
+    Result := InternetSetOption(nil, INTERNET_OPTION_PER_CONNECTION_OPTION, @list, dwBufSize);
+    Result := Result and InternetSetOption(nil, INTERNET_OPTION_REFRESH, nil, 0);
   finally
     InternetCloseHandle(hInternet)
   end;
@@ -2835,11 +2946,11 @@ begin
   list.pszConnection := nil;
   list.dwOptionCount := High(Options);
   Options[1].dwOption := INTERNET_PER_CONN_FLAGS;
-  Options[1].Value.dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY;
+  Options[1].dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY;
   Options[2].dwOption := INTERNET_PER_CONN_PROXY_SERVER;
-  Options[2].Value.pszValue := PAnsiChar(AnsiString(Address));
+  Options[2].pszValue := PChar(Address);
   Options[3].dwOption := INTERNET_PER_CONN_PROXY_BYPASS;
-  Options[3].Value.pszValue := '<local>';
+  Options[3].pszValue := '<local>';
   list.pOptions := @Options;
   hInternet := InternetOpen(PChar(UserAgent), INTERNET_OPEN_TYPE_DIRECT, nil, nil, 0);
   if hInternet <> nil then
@@ -2856,6 +2967,7 @@ begin
   end;
 end;
 
+
 function SetProxyFromPAC(UserAgent, PACFile: string): Boolean;
 var
   list: INTERNET_PER_CONN_OPTION_LIST;
@@ -2869,9 +2981,9 @@ begin
   list.pszConnection := nil;
   list.dwOptionCount := High(Options);
   Options[1].dwOption := INTERNET_PER_CONN_AUTOCONFIG_URL;
-  Options[1].Value.pszValue := PAnsiChar(AnsiString(PacFile));
+  Options[1].pszValue := PChar(PacFile);
   Options[2].dwOption := INTERNET_PER_CONN_FLAGS;
-  Options[2].Value.dwValue := PROXY_TYPE_AUTO_PROXY_URL;
+  Options[2].dwValue := PROXY_TYPE_AUTO_PROXY_URL;
   list.dwOptionCount := 2;
   list.dwOptionError := 0;
   list.pOptions := @Options;
@@ -2898,11 +3010,11 @@ begin
   list.pszConnection := nil;
   list.dwOptionCount := High(Options);
   Options[1].dwOption := INTERNET_PER_CONN_FLAGS;
-  Options[1].Value.dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY;
+  Options[1].dwValue := PROXY_TYPE_DIRECT or PROXY_TYPE_PROXY;
   Options[2].dwOption := INTERNET_PER_CONN_PROXY_SERVER;
-  Options[2].Value.pszValue := PAnsiChar('');
+  Options[2].pszValue := PChar('');
   Options[3].dwOption := INTERNET_PER_CONN_PROXY_BYPASS;
-  Options[3].Value.pszValue := '<local>';
+  Options[3].pszValue := '<local>';
   list.pOptions := @Options;
   hInternet := InternetOpen(PChar(''), INTERNET_OPEN_TYPE_DIRECT, nil, nil, 0);
   if hInternet <> nil then
@@ -3015,9 +3127,9 @@ begin
             wsMinimized: WriteInteger('WindowState', 0);
             wsMaximized: WriteInteger('WindowState', 0);
           end;
-        end;
-        CloseKey;
-        Free;
+      end;
+      CloseKey;
+      Free;
     except
     end;
   end;
@@ -3173,17 +3285,17 @@ function WBExecScript(
   MethodName: string;
   ParamValues: array of const): OleVariant;
 var
-  wide: widestring;
+  wide: WideString;
   disps: TDispIDList;
   panswer: ^OleVariant;
   answer: OleVariant;
   dispParams: TDispParams;
   aexception: TExcepInfo;
   pVarArg: PVariantArgList;
-  res: HResult;
+  res: HRESULT;
   ParamCount, i: Integer;
 begin
-  Result := false;
+  Result := False;
 
   // prepare for function call
   ParamCount := High(ParamValues) + 1;
@@ -3199,7 +3311,7 @@ begin
     pAnswer := @answer;
 
     // prepare parameters
-    for i := 0 to ParamCount - 1 do
+    for i := 0 to Pred(ParamCount) do
     begin
       case ParamValues[ParamCount - 1 - i].VType of
         vtBoolean: begin
@@ -3301,9 +3413,7 @@ begin
   begin
     dScript := doc.Script;
     if Assigned(dScript) then
-    begin
       Result := WBExecScript(DScript, MethodName, ParamValues);
-    end;
   end;
 end;
 
@@ -3373,7 +3483,7 @@ var
   i, j: Integer;
 begin
   if VarIsArray(V) then
-    for I := 0 to VarArrayHighBound(V, 1) do
+    for i := 0 to VarArrayHighBound(V, 1) do
     begin
       j := V[i];
       Result := Result + chr(j);
@@ -3422,14 +3532,22 @@ begin
   Result := (StrToInt(S[1]) > 4);
 end;
 
-function GetIEVersionMajor: string;
+function GetIEVersionMajor: Integer;
 var
   i: Integer;
+  s: string;
 begin
-  Result := GetIEVersion;
-  i := Pos('.', Result);
+  s := GetIEVersion;
+  i := Pos('.', s);
+  Result := -1;
   if i <> 0 then
-    Result := Copy(Result, 1, Pos('.', Result) - 1);
+  begin
+    try
+      Result := StrToInt(Copy(s, 1, Pos('.', s) - 1));
+    except
+      Result := -1;
+    end;
+  end;
 end;
 
 function GetIEVersion: string;
@@ -3499,16 +3617,15 @@ var
   IURL: IUniformResourceLocator;
   PersistFile: IPersistfile;
   FName: array[0..MAX_PATH] of WideChar;
-  p: Pchar;
+  p: PChar;
 begin
   if Succeeded(CoCreateInstance(CLSID_InternetShortcut, nil, CLSCTX_INPROC_SERVER,
-    IID_IUniformResourceLocator, IURL))
-    then
+    IID_IUniformResourceLocator, IURL)) then
   begin
     Persistfile := IUrl as IPersistFile;
     StringToWideChar(FileName, FName, MAX_PATH);
-    PersistFile.Load(Fname, STGM_READ);
-    IUrl.geturl(@P);
+    PersistFile.Load(FName, STGM_READ);
+    IUrl.GetUrl(@P);
     Result := P;
   end;
 end;
@@ -3523,8 +3640,7 @@ begin
   if Succeeded(pFolder.GetUIObjectOf(0, 1, pidl, IShellLink, nil, Pointer(pShellLink)))
     then
     if Succeeded(pShellLink.GetIDList(pidlChannel)) then
-      if Succeeded(SHGetDesktopFolder(psfDesktop))
-        then
+      if Succeeded(SHGetDesktopFolder(psfDesktop)) then
       begin
         lpszURL := getDisplayName(psfDesktop, PidlChannel);
         Result := S_OK;
@@ -3787,9 +3903,7 @@ begin
         GetKeyNames(ts);
         CloseKey;
         for i := 0 to ts.Count - 1 do
-        begin
           OpenKey(RegMail + ts.Strings[i], False);
-        end;
       end;
       Result := ts;
     finally
@@ -3802,3 +3916,4 @@ end;
 
 
 end.
+

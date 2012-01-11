@@ -88,7 +88,7 @@ For other source and target encodings, you will have to override "TranslateEncod
 Buffer Handling
 ---------------
 - The document must be loaded completely into a piece of RAM
-- All character positions are referenced by PChar pointers
+- All character positions are referenced by PAnsiChar pointers
 - The TXmlParser instance can either "own" the buffer itself (then, FBufferSize is > 0)
   or reference the buffer of another instance or object (then, FBuffersize is 0 and
   FBuffer is not NIL)
@@ -98,7 +98,7 @@ Buffer Handling
 Whitespace Handling
 -------------------
 The TXmlParser property "PackSpaces" determines how Whitespace is returned in Text Content:
-While PackSpaces is True, all leading and trailing whitespace characters are trimmed of, all
+While PackSpaces is true, all leading and trailing whitespace characters are trimmed of, all
 Whitespace is converted to Space #x20 characters and contiguous Whitespace characters are
 compressed to one.
 If the "Scan" method reports a ptContent part, the application can get the original text
@@ -188,12 +188,9 @@ Date        Author Version Changes
                            There is a new symbol HAS_CONTNRS_UNIT which is used now to
                            distinguish between IDEs which come with the Contnrs unit and
                            those that don't.
-
-2008-01-03  AHUser 1.0.18  Improved Delphi 2009 Unicode support
-                           Changed functions: LoadFromBuffer, LoadFromFile, AnsiToUtf8, Utf8ToAnsi
+2009-05-17  bsalsa  1.0.18 Added D2009 support.
 
 *)
-//$Id: LibXmlParser.pas,v 1.2 2006/11/15 21:01:42 sergev Exp $
 
 // --- Delphi/Kylix Version Numbers
 //     As this is no code, this does not blow up your object or executable code at all
@@ -237,10 +234,7 @@ Date        Author Version Changes
 
 unit LibXmlParser;
 
-
-{$IFDEF UNICODE}
-{$WARN WIDECHAR_REDUCED OFF}
-{$ENDIF UNICODE}
+{$I EWB.inc}
 
 interface
 
@@ -287,54 +281,54 @@ type
   TNotationDef = class;
 
   TDtdElementRec = record // --- This Record is returned by the DTD parser callback function
-    Start, Final: PChar; // Start/End of the Element's Declaration
+    Start, Final: PAnsiChar; // Start/End of the Element's Declaration
     case ElementType: TDtdElemType of // Type of the Element
       deElement, // <!ELEMENT>
         deAttList: (ElemDef: TElemDef); // <!ATTLIST>
       deEntity: (EntityDef: TEntityDef); // <!ENTITY>
       deNotation: (NotationDef: TNotationDef); // <!NOTATION>
-      dePI: (Target: PChar; // <?PI ?>
-        Content: PChar;
+      dePI: (Target: PAnsiChar; // <?PI ?>
+        Content: PAnsiChar;
         AttrList: TAttrList);
-      deError: (Pos: PChar); // Error
+      deError: (Pos: PAnsiChar); // Error
                        // deComment : ((No additional fields here));   // <!-- Comment -->
   end;
 
   TXmlParser = class // --- Internal Properties and Methods
   protected
-    FBuffer: PChar; // NIL if there is no buffer available
-    FBufferSize: Integer; // 0 if the buffer is not owned by the Document instance
+    FBuffer: PAnsiChar; // NIL if there is no buffer available
+    FBufferSize: INTEGER; // 0 if the buffer is not owned by the Document instance
     FSource: string; // Name of Source of document. Filename for Documents loaded with LoadFromFile
 
     FXmlVersion: string; // XML version from Document header. Default is '1.0'
     FEncoding: string; // Encoding from Document header. Default is 'UTF-8'
     FStandalone: BOOLEAN; // Standalone declaration from Document header. Default is 'yes'
     FRootName: string; // Name of the Root Element (= DTD name)
-    FDtdcFinal: PChar; // Pointer to the '>' character terminating the DTD declaration
+    FDtdcFinal: PAnsiChar; // Pointer to the '>' character terminating the DTD declaration
 
-    FNormalize: BOOLEAN; // If True: Pack Whitespace and don't return empty contents
+    FNormalize: BOOLEAN; // If true: Pack Whitespace and don't return empty contents
     EntityStack: TEntityStack; // Entity Stack for Parameter and General Entities
     FCurEncoding: string; // Current Encoding during parsing (always uppercase)
 
     procedure AnalyzeProlog; // Analyze XML Prolog or Text Declaration
-    procedure AnalyzeComment(Start: PChar; var Final: PChar); // Analyze Comments
-    procedure AnalyzePI(Start: PChar; var Final: PChar); // Analyze Processing Instructions (PI)
+    procedure AnalyzeComment(Start: PAnsiChar; var Final: PAnsiChar); // Analyze Comments
+    procedure AnalyzePI(Start: PAnsiChar; var Final: PAnsiChar); // Analyze Processing Instructions (PI)
     procedure AnalyzeDtdc; // Analyze Document Type Declaration
-    procedure AnalyzeDtdElements(Start: PChar; var Final: PChar); // Analyze DTD declarations
+    procedure AnalyzeDtdElements(Start: PAnsiChar; var Final: PAnsiChar); // Analyze DTD declarations
     procedure AnalyzeTag; // Analyze Start/End/Empty-Element Tags
     procedure AnalyzeCData; // Analyze CDATA Sections
     procedure AnalyzeText(var IsDone: BOOLEAN); // Analyze Text Content between Tags
-    procedure AnalyzeElementDecl(Start: PChar; var Final: PChar);
-    procedure AnalyzeAttListDecl(Start: PChar; var Final: PChar);
-    procedure AnalyzeEntityDecl(Start: PChar; var Final: PChar);
-    procedure AnalyzeNotationDecl(Start: PChar; var Final: PChar);
+    procedure AnalyzeElementDecl(Start: PAnsiChar; var Final: PAnsiChar);
+    procedure AnalyzeAttListDecl(Start: PAnsiChar; var Final: PAnsiChar);
+    procedure AnalyzeEntityDecl(Start: PAnsiChar; var Final: PAnsiChar);
+    procedure AnalyzeNotationDecl(Start: PAnsiChar; var Final: PAnsiChar);
 
-    procedure PushPE(var Start: PChar);
+    procedure PushPE(var Start: PAnsiChar);
     procedure ReplaceCharacterEntities(var Str: string);
     procedure ReplaceParameterEntities(var Str: string);
     procedure ReplaceGeneralEntities(var Str: string);
 
-    function GetDocBuffer: PChar; // Returns FBuffer or a pointer to a NUL char if Buffer is empty
+    function GetDocBuffer: PAnsiChar; // Returns FBuffer or a pointer to a NUL char if Buffer is empty
 
   public // --- Document Properties
     property XmlVersion: string read FXmlVersion; // XML version from the Document Prolog
@@ -343,7 +337,7 @@ type
     property RootName: string read FRootName; // Name of the Root Element
     property Normalize: BOOLEAN read FNormalize write FNormalize; // True if Content is to be normalized
     property Source: string read FSource; // Name of Document Source (Filename)
-    property DocBuffer: PChar read GetDocBuffer; // Returns document buffer
+    property DocBuffer: PAnsiChar read GetDocBuffer; // Returns document buffer
   public // --- DTD Objects
     Elements: TElemList; // Elements: List of TElemDef (contains Attribute Definitions)
     Entities: TNvpList; // General Entities: List of TEntityDef
@@ -355,10 +349,10 @@ type
 
                  // --- Document Handling
     function LoadFromFile(Filename: string;
-      FileMode: Integer = fmOpenRead or fmShareDenyNone): BOOLEAN;
+      FileMode: INTEGER = fmOpenRead or fmShareDenyNone): BOOLEAN;
                                                                           // Loads Document from given file
-    function LoadFromBuffer(Buffer: PChar): BOOLEAN; // Loads Document from another buffer
-    procedure SetBuffer(Buffer: PChar); // References another buffer
+    function LoadFromBuffer(Buffer: PAnsiChar): BOOLEAN; // Loads Document from another buffer
+    procedure SetBuffer(Buffer: PAnsiChar); // References another buffer
     procedure Clear; // Clear Document
 
   public
@@ -366,8 +360,8 @@ type
     CurPartType: TPartType; // Current Type
     CurName: string; // Current Name
     CurContent: string; // Current Normalized Content
-    CurStart: PChar; // Current First character
-    CurFinal: PChar; // Current Last character
+    CurStart: PAnsiChar; // Current First character
+    CurFinal: PAnsiChar; // Current Last character
     CurAttr: TAttrList; // Current Attribute List
     property CurEncoding: string read FCurEncoding; // Current Encoding
     procedure StartScan;
@@ -416,7 +410,7 @@ type
   (*$ELSE *)
   TObjectList = class(TList)
     destructor Destroy; override;
-    procedure Delete(Index: Integer);
+    procedure Delete(Index: INTEGER);
     procedure Clear; override;
   end;
   (*$ENDIF *)
@@ -430,10 +424,10 @@ type
   TNvpList = class(TObjectList) // Name-Value Pair List
     procedure Add(Node: TNvpNode);
     function Node(Name: string): TNvpNode; overload;
-    function Node(Index: Integer): TNvpNode; overload;
+    function Node(Index: INTEGER): TNvpNode; overload;
     function Value(Name: string): string; overload;
-    function Value(Index: Integer): string; overload;
-    function Name(Index: Integer): string;
+    function Value(Index: INTEGER): string; overload;
+    function Name(Index: INTEGER): string;
   end;
 
   TAttr = class(TNvpNode) // Attribute of a Start-Tag or Empty-Element-Tag
@@ -442,7 +436,7 @@ type
   end;
 
   TAttrList = class(TNvpList) // List of Attributes
-    procedure Analyze(Start: PChar; var Final: PChar);
+    procedure Analyze(Start: PAnsiChar; var Final: PAnsiChar);
   end;
 
   TEntityStack = class(TObjectList) // Stack where current position is stored before parsing entities
@@ -450,9 +444,9 @@ type
     Owner: TXmlParser;
   public
     constructor Create(TheOwner: TXmlParser);
-    procedure Push(LastPos: PChar); overload;
-    procedure Push(Instance: TObject; LastPos: PChar); overload;
-    function Pop: PChar; // Returns next char or NIL if EOF is reached. Frees Instance.
+    procedure Push(LastPos: PAnsiChar); overload;
+    procedure Push(Instance: TObject; LastPos: PAnsiChar); overload;
+    function Pop: PAnsiChar; // Returns next char or NIL if EOF is reached. Frees Instance.
   end;
 
   TAttrDef = class(TNvpNode) // Represents a <!ATTLIST Definition. "Value" is the default value
@@ -514,14 +508,12 @@ const
     'Notation', 'Enumeration');
 
 function ConvertWs(Source: string; PackWs: BOOLEAN): string; // Convert WS to spaces #x20
-procedure SetStringSF(var S: string; BufferStart, BufferFinal: PChar); // SetString by Start/Final of buffer
-function StrSFPas(Start, Finish: PChar): string; // Convert buffer part to Pascal string
+procedure SetStringSF(var S: string; BufferStart, BufferFinal: PAnsiChar); // SetString by Start/Final of buffer
+function StrSFPas(Start, Finish: PAnsiChar): string; // Convert buffer part to Pascal string
 function TrimWs(Source: string): string; // Trim Whitespace
 
-{$IFNDEF UNICODE}
-function AnsiToUtf8(Source: ANSISTRING): Ansistring; // Convert Win-1252 to UTF-8
-function Utf8ToAnsi(Source: AnsiString; UnknownChar: AnsiChar = '¿'): ANSISTRING; // Convert UTF-8 to Win-1252
-{$ENDIF ~UNICODE}
+function AnsiToUtf8(Source: ANSISTRING): string; // Convert Win-1252 to UTF-8
+function Utf8ToAnsi(Source: string; UnknownChar: AnsiChar = '¿'): ANSISTRING; // Convert UTF-8 to Win-1252
 
 (*
 ===============================================================================================
@@ -541,7 +533,7 @@ type
   TElementEvent = procedure(Sender: TObject; ElemDef: TElemDef) of object;
   TEntityEvent = procedure(Sender: TObject; EntityDef: TEntityDef) of object;
   TNotationEvent = procedure(Sender: TObject; NotationDef: TNotationDef) of object;
-  TErrorEvent = procedure(Sender: TObject; ErrorPos: PChar) of object;
+  TErrorEvent = procedure(Sender: TObject; ErrorPos: PAnsiChar) of object;
   TExternalEvent = procedure(Sender: TObject; SystemId, PublicId, NotationId: string;
     var Result: TXmlParser) of object;
   TEncodingEvent = function(Sender: TObject; CurrentEncoding, Source: string): string of object;
@@ -582,15 +574,15 @@ type
     procedure WhenAttList(ElemDef: TElemDef); virtual;
     procedure WhenEntity(EntityDef: TEntityDef); virtual;
     procedure WhenNotation(NotationDef: TNotationDef); virtual;
-    procedure WhenDtdError(ErrorPos: PChar); virtual;
+    procedure WhenDtdError(ErrorPos: PAnsiChar); virtual;
 
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
     procedure LoadFromFile(Filename: TFilename); // Load XML Document from file
-    procedure LoadFromBuffer(Buffer: PChar); // Load XML Document from buffer
-    procedure SetBuffer(Buffer: PChar); // Refer to Buffer
+    procedure LoadFromBuffer(Buffer: PAnsiChar); // Load XML Document from buffer
+    procedure SetBuffer(Buffer: PAnsiChar); // Refer to Buffer
     function GetFilename: TFilename;
 
     procedure Execute; // Perform scanning
@@ -625,6 +617,13 @@ IMPLEMENTATION
 *)
 
 implementation
+
+{$IFNDEF DELPHI12_UP}
+function CharInSet(C: Char; const CharSet: TSysCharSet): Boolean;
+begin
+  Result := C in CharSet;
+end;
+{$ENDIF}
 
 (*
 ===============================================================================================
@@ -686,14 +685,35 @@ const
                                Decimal  195      164
                                ANSI     Ã        ¤         *)
 
-{$IFNDEF UNICODE}
 
-function AnsiToUtf8(Source: ANSISTRING): AnsiString;
+function StringToPAnsiChar(inString: string): PAnsiChar;
+var
+  AnsString: AnsiString;
+  InternalError: Boolean;
+begin
+  InternalError := False;
+  Result := '';
+  try
+    if inString <> EmptyStr then
+    begin
+      AnsString := AnsiString(inString);
+      Result := PAnsiChar(PAnsiString(AnsString));
+    end;
+  except
+    InternalError := True;
+  end;
+  if InternalError or (string(Result) <> inString) then
+  begin
+    raise Exception.Create('Conversion from string to PAnsiChar failed!');
+  end;
+end;
+
+function AnsiToUtf8(Source: ANSISTRING): string;
           (* Converts the given Windows ANSI (Win1252) String to UTF-8. *)
 var
-  I: Integer; // Loop counter
+  I: INTEGER; // Loop counter
   U: WORD; // Current Unicode value
-  Len: Integer; // Current real length of "Result" string
+  Len: INTEGER; // Current real length of "Result" string
 begin
   SetLength(Result, Length(Source) * 3); // Worst case
   Len := 0;
@@ -703,23 +723,23 @@ begin
     case U of
       $0000..$007F:
         begin
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR(U);
         end;
       $0080..$07FF:
         begin
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR($C0 or (U shr 6));
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR($80 or (U and $3F));
         end;
       $0800..$FFFF:
         begin
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR($E0 or (U shr 12));
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR($80 or ((U shr 6) and $3F));
-          Inc(Len);
+          INC(Len);
           Result[Len] := CHR($80 or (U and $3F));
         end;
     end;
@@ -727,16 +747,16 @@ begin
   SetLength(Result, Len);
 end;
 
-function Utf8ToAnsi(Source: AnsiString; UnknownChar: AnsiChar = '¿'): ANSISTRING;
+function Utf8ToAnsi(Source: string; UnknownChar: AnsiChar = '¿'): ANSISTRING;
           (* Converts the given UTF-8 String to Windows ANSI (Win-1252).
              If a character can not be converted, the "UnknownChar" is inserted. *)
 var
-  SourceLen: Integer; // Length of Source string
-  I, K: Integer;
+  SourceLen: INTEGER; // Length of Source string
+  I, K: INTEGER;
   A: BYTE; // Current ANSI character value
   U: WORD;
   Ch: AnsiChar; // Dest char
-  Len: Integer; // Current real length of "Result" string
+  Len: INTEGER; // Current real length of "Result" string
 begin
   SourceLen := Length(Source);
   SetLength(Result, SourceLen); // Enough room to live
@@ -747,16 +767,16 @@ begin
     A := ORD(Source[I]);
     if A < $80 then
     begin // Range $0000..$007F
-      Inc(Len);
-      Result[Len] := Source[I];
-      Inc(I);
+      INC(Len);
+      Result[Len] := AnsiChar(Source[I]);
+      INC(I);
     end
     else
     begin // Determine U, Inc I
       if (A and $E0 = $C0) and (I < SourceLen) then
       begin // Range $0080..$07FF
         U := (WORD(A and $1F) shl 6) or (ORD(Source[I + 1]) and $3F);
-        Inc(I, 2);
+        INC(I, 2);
       end
       else
         if (A and $F0 = $E0) and (I < SourceLen - 1) then
@@ -764,16 +784,16 @@ begin
           U := (WORD(A and $0F) shl 12) or
             (WORD(ORD(Source[I + 1]) and $3F) shl 6) or
             (ORD(Source[I + 2]) and $3F);
-          Inc(I, 3);
+          INC(I, 3);
         end
         else
         begin // Unknown/unsupported
-          Inc(I);
+          INC(I);
           for K := 7 downto 0 do
             if A and (1 shl K) = 0 then
             begin
-              Inc(I, (A shr (K + 1)) - 1);
-              Break;
+              INC(I, (A shr (K + 1)) - 1);
+              BREAK;
             end;
           U := WIN1252_UNICODE[ORD(UnknownChar)];
         end;
@@ -781,16 +801,15 @@ begin
       for A := $00 to $FF do
         if WIN1252_UNICODE[A] = U then
         begin
-          Ch := CHR(A);
-          Break;
+          Ch := AnsiChar(CHR(A));
+          BREAK;
         end;
-      Inc(Len);
-      Result[Len] := Ch;
+      INC(Len);
+      Result[Len] := AnsiChar(Ch);
     end;
   end;
   SetLength(Result, Len);
 end;
-{$ENDIF ~UNICODE}
 
 (*
 ===============================================================================================
@@ -804,40 +823,40 @@ faster than hand-coded assembler!)
 ===============================================================================================
 --> Just move this line below the StrScan function -->  *)
 
-function StrPos(const Str, SearchStr: PChar): PChar;
+function StrPos(const Str, SearchStr: PAnsiChar): PAnsiChar;
          // Same functionality as SysUtils.StrPos
 var
-  First: CHAR;
-  Len: Integer;
+  First: AnsiChar;
+  Len: INTEGER;
 begin
-  First := SearchStr^;
+  First := AnsiChar(SearchStr^);
   Len := StrLen(SearchStr);
   Result := Str;
   repeat
-    if Result^ = First then
+    if AnsiChar(Result^) = First then
       if StrLComp(Result, SearchStr, Len) = 0 then
-        Break;
+        BREAK;
     if Result^ = #0 then
     begin
       Result := nil;
-      Break;
+      BREAK;
     end;
-    Inc(Result);
-  until False;
+    INC(Result);
+  until FALSE;
 end;
 
-function StrScan(const Start: PChar; const Ch: CHAR): PChar;
+function StrScan(const Start: PAnsiChar; const Ch: AnsiChar): PAnsiChar;
          // Same functionality as SysUtils.StrScan
 begin
   Result := Start;
-  while Result^ <> Ch do
+  while AnsiChar(Result^) <> Ch do
   begin
     if Result^ = #0 then
     begin
       Result := nil;
-      Exit;
+      EXIT;
     end;
-    Inc(Result);
+    INC(Result);
   end;
 end;
 
@@ -850,64 +869,64 @@ Helper Functions
 function DelChars(Source: string; CharsToDelete: TCharset): string;
           // Delete all "CharsToDelete" from the string
 var
-  I: Integer;
+  I: INTEGER;
 begin
   Result := Source;
   for I := Length(Result) downto 1 do
-    if Result[I] in CharsToDelete then
+    if CharInSet(Result[I], CharsToDelete) then
       Delete(Result, I, 1);
 end;
 
 function TrimWs(Source: string): string;
           // Trimms off Whitespace characters from both ends of the string
 var
-  I: Integer;
+  I: INTEGER;
 begin
   // --- Trim Left
   I := 1;
-  while (I <= Length(Source)) and (Source[I] in CWhitespace) do
-    Inc(I);
+  while (I <= Length(Source)) and (CharInSet(Source[I], CWhitespace)) do
+    INC(I);
   Result := Copy(Source, I, MaxInt);
 
   // --- Trim Right
   I := Length(Result);
-  while (I > 1) and (Result[I] in CWhitespace) do
+  while (I > 1) and (CharInSet(Result[I], CWhitespace)) do
     DEC(I);
   Delete(Result, I + 1, Length(Result) - I);
 end;
 
 function ConvertWs(Source: string; PackWs: BOOLEAN): string;
           // Converts all Whitespace characters to the Space #x20 character
-          // If "PackWs" is True, contiguous Whitespace characters are packed to one
+          // If "PackWs" is true, contiguous Whitespace characters are packed to one
 var
-  I: Integer;
+  I: INTEGER;
 begin
   Result := Source;
   for I := Length(Result) downto 1 do
-    if (Result[I] in CWhitespace) then
-      if PackWs and (I > 1) and (Result[I - 1] in CWhitespace)
+    if (CharInSet(Result[I], CWhitespace)) then
+      if PackWs and (I > 1) and (CharInSet(Result[I - 1], CWhitespace))
         then
         Delete(Result, I, 1)
       else
         Result[I] := #32;
 end;
 
-procedure SetStringSF(var S: string; BufferStart, BufferFinal: PChar);
+procedure SetStringSF(var S: string; BufferStart, BufferFinal: PAnsiChar);
 begin
   SetString(S, BufferStart, BufferFinal - BufferStart + 1);
 end;
 
-function StrLPas(Start: PChar; Len: Integer): string;
+function StrLPas(Start: PAnsiChar; Len: INTEGER): string;
 begin
   SetString(Result, Start, Len);
 end;
 
-function StrSFPas(Start, Finish: PChar): string;
+function StrSFPas(Start, Finish: PAnsiChar): string;
 begin
   SetString(Result, Start, Finish - Start + 1);
 end;
 
-function StrScanE(const Source: PChar; const CharToScanFor: CHAR): PChar;
+function StrScanE(const Source: PAnsiChar; const CharToScanFor: AnsiChar): PAnsiChar;
           // If "CharToScanFor" is not found, StrScanE returns the last char of the
           // buffer instead of NIL
 begin
@@ -916,7 +935,7 @@ begin
     Result := StrEnd(Source) - 1;
 end;
 
-procedure ExtractName(Start: PChar; Terminators: TCharset; var Final: PChar);
+procedure ExtractName(Start: PAnsiChar; Terminators: TCharset; var Final: PAnsiChar);
           (* Extracts the complete Name beginning at "Start".
              It is assumed that the name is contained in Markup, so the '>' character is
              always a Termination.
@@ -927,18 +946,18 @@ begin
   Final := Start + 1;
   Include(Terminators, #0);
   Include(Terminators, '>');
-  while not (Final^ in Terminators) do
-    Inc(Final);
+  while not (CharInSet(Final^, Terminators)) do
+    INC(Final);
   DEC(Final);
 end;
 
-procedure ExtractQuote(Start: PChar; var Content: string; var Final: PChar);
+procedure ExtractQuote(Start: PAnsiChar; var Content: string; var Final: PAnsiChar);
           (* Extract a string which is contained in single or double Quotes.
              Start:    IN   Pointer to opening quote
              Content:  OUT  The quoted string
              Final:    OUT  Pointer to closing quote *)
 begin
-  Final := StrScan(Start + 1, Start^);
+  Final := StrScan(Start + 1, AnsiChar(Start^));
   if Final = nil then
   begin
     Final := StrEnd(Start + 1) - 1;
@@ -967,7 +986,7 @@ type
   TEntityStackNode = class
     Instance: TObject;
     Encoding: string;
-    LastPos: PChar;
+    LastPos: PAnsiChar;
   end;
 
 (*
@@ -988,12 +1007,12 @@ begin
   Owner := TheOwner;
 end;
 
-procedure TEntityStack.Push(LastPos: PChar);
+procedure TEntityStack.Push(LastPos: PAnsiChar);
 begin
   Push(nil, LastPos);
 end;
 
-procedure TEntityStack.Push(Instance: TObject; LastPos: PChar);
+procedure TEntityStack.Push(Instance: TObject; LastPos: PAnsiChar);
 var
   ESN: TEntityStackNode;
 begin
@@ -1004,7 +1023,7 @@ begin
   Add(ESN);
 end;
 
-function TEntityStack.Pop: PChar;
+function TEntityStack.Pop: PAnsiChar;
 var
   ESN: TEntityStackNode;
 begin
@@ -1037,35 +1056,35 @@ type
   TExternalID = class
     PublicId: string;
     SystemId: string;
-    Final: PChar;
-    constructor Create(Start: PChar);
+    Final: PAnsiChar;
+    constructor Create(Start: PAnsiChar);
   end;
 
-constructor TExternalID.Create(Start: PChar);
+constructor TExternalID.Create(Start: PAnsiChar);
 begin
   inherited Create;
   Final := Start;
   if StrLComp(Start, 'SYSTEM', 6) = 0 then
   begin
-    while not (Final^ in (CQuoteChar + [#0, '>', '['])) do
-      Inc(Final);
-    if not (Final^ in CQuoteChar) then
-      Exit;
+    while not (CharInSet(Final^, (CQuoteChar + [#0, '>', '[']))) do
+      INC(Final);
+    if not (CharInSet(Final^, CQuoteChar)) then
+      EXIT;
     ExtractQuote(Final, SystemID, Final);
   end
   else
     if StrLComp(Start, 'PUBLIC', 6) = 0 then
     begin
-      while not (Final^ in (CQuoteChar + [#0, '>', '['])) do
-        Inc(Final);
-      if not (Final^ in CQuoteChar) then
-        Exit;
+      while not (CharInSet(Final^, (CQuoteChar + [#0, '>', '[']))) do
+        INC(Final);
+      if not (CharInSet(Final^, CQuoteChar)) then
+        EXIT;
       ExtractQuote(Final, PublicID, Final);
-      Inc(Final);
-      while not (Final^ in (CQuoteChar + [#0, '>', '['])) do
-        Inc(Final);
-      if not (Final^ in CQuoteChar) then
-        Exit;
+      INC(Final);
+      while not (CharInSet(Final^, (CQuoteChar + [#0, '>', '[']))) do
+        INC(Final);
+      if not (CharInSet(Final^, CQuoteChar)) then
+        EXIT;
       ExtractQuote(Final, SystemID, Final);
     end;
 end;
@@ -1112,10 +1131,10 @@ begin
   FSource := '';
   FXmlVersion := '';
   FEncoding := '';
-  FStandalone := False;
+  FStandalone := FALSE;
   FRootName := '';
   FDtdcFinal := nil;
-  FNormalize := True;
+  FNormalize := TRUE;
   Elements.Clear;
   Entities.Clear;
   ParEntities.Clear;
@@ -1124,59 +1143,28 @@ begin
   EntityStack.Clear;
 end;
 
-function TXmlParser.LoadFromFile(Filename: string; FileMode: Integer = fmOpenRead or fmShareDenyNone): BOOLEAN;
+function TXmlParser.LoadFromFile(Filename: string; FileMode: INTEGER = fmOpenRead or fmShareDenyNone): BOOLEAN;
           // Loads Document from given file
-          // Returns True if successful
+          // Returns TRUE if successful
 var
-{$IFDEF UNICODE}
-  Stream: TStream;
-  Reader: TStreamReader;
-  S: string;
-{$ELSE}
   f: file;
-  ReadIn: Integer;
-  OldFileMode: Integer;
-{$ENDIF UNICODE}
+  ReadIn: INTEGER;
+  OldFileMode: INTEGER;
 begin
-  Result := False;
+  Result := FALSE;
   Clear;
 
-{$IFDEF UNICODE}
-  Reader := nil;
-  Stream := TFileStream.Create(Filename, FileMode);
-  try
-    Reader := TStreamReader.Create(Stream, True);
-    try
-      S := Reader.ReadToEnd;
-      FBufferSize := (Length(S) + 1) * SizeOf(Char);
-      GetMem(FBuffer, FBufferSize);
-      if S <> '' then
-        MoveChars(S[1], FBuffer^, Length(S));
-      FBuffer[Length(S)] := #0;
-    except
-      Clear;
-      Exit;
-    end;
-  finally
-    Reader.Free;
-    Stream.Free;
-  end;
-
-  FSource := Filename;
-  Result := True;
-
-{$ELSE}
-
   // --- Open File
-  OldFileMode := System.FileMode;
+  OldFileMode := SYSTEM.FileMode;
   try
-    System.FileMode := FileMode;
+    SYSTEM.FileMode := FileMode;
     try
       AssignFile(f, Filename);
       Reset(f, 1);
     except
-      Exit;
+      EXIT;
     end;
+
     try
       // --- Allocate Memory
       try
@@ -1184,49 +1172,49 @@ begin
         GetMem(FBuffer, FBufferSize);
       except
         Clear;
-        Exit;
+        EXIT;
       end;
+
       // --- Read File
       try
         BlockRead(f, FBuffer^, FBufferSize, ReadIn);
         (FBuffer + ReadIn)^ := #0; // NULL termination
       except
         Clear;
-        Exit;
+        EXIT;
       end;
     finally
       CloseFile(f);
     end;
 
     FSource := Filename;
-    Result := True;
+    Result := TRUE;
 
   finally
-    System.FileMode := OldFileMode;
+    SYSTEM.FileMode := OldFileMode;
   end;
-{$ENDIF UNICODE}
 end;
 
-function TXmlParser.LoadFromBuffer(Buffer: PChar): BOOLEAN;
+function TXmlParser.LoadFromBuffer(Buffer: PAnsiChar): BOOLEAN;
           // Loads Document from another buffer
-          // Returns True if successful
+          // Returns TRUE if successful
           // The "Source" property becomes '<MEM>' if successful
 begin
-  Result := False;
+  Result := FALSE;
   Clear;
-  FBufferSize := (StrLen(Buffer) + 1) * SizeOf(Char);
+  FBufferSize := StrLen(Buffer) + 1;
   try
     GetMem(FBuffer, FBufferSize);
   except
     Clear;
-    Exit;
+    EXIT;
   end;
   StrCopy(FBuffer, Buffer);
   FSource := '<MEM>';
-  Result := True;
+  Result := TRUE;
 end;
 
-procedure TXmlParser.SetBuffer(Buffer: PChar); // References another buffer
+procedure TXmlParser.SetBuffer(Buffer: PAnsiChar); // References another buffer
 begin
   Clear;
   FBuffer := Buffer;
@@ -1251,15 +1239,15 @@ end;
 
 function TXmlParser.Scan: BOOLEAN;
           // Scans the next Part
-          // Returns True if a part could be found, False if there is no part any more
+          // Returns TRUE if a part could be found, FALSE if there is no part any more
           //
-          // "IsDone" can be set to False by AnalyzeText in order to go to the next part
+          // "IsDone" can be set to FALSE by AnalyzeText in order to go to the next part
           // if there is no Content due to normalization
 var
-  IsDone: Boolean;
+  IsDone: BOOLEAN;
 begin
   repeat
-    IsDone := True;
+    IsDone := TRUE;
 
     // --- Start of next Part
     if CurStart = nil
@@ -1268,7 +1256,6 @@ begin
     else
       CurStart := CurFinal + 1;
     CurFinal := CurStart;
-
     // --- End of Document of Pop off a new part from the Entity stack?
     if CurStart^ = #0 then
       CurStart := EntityStack.Pop;
@@ -1279,12 +1266,12 @@ begin
       CurStart := StrEnd(DocBuffer);
       CurFinal := CurStart - 1;
       EntityStack.Clear;
-      Result := False;
-      Exit;
+      Result := FALSE;
+      EXIT;
     end;
 
     if (StrLComp(CurStart, '<?xml', 5) = 0) and
-      ((CurStart + 5)^ in CWhitespace) then
+      (CharInSet((CurStart + 5)^, CWhitespace)) then
       AnalyzeProlog // XML Declaration, Text Declaration
     else
       if StrLComp(CurStart, '<?', 2) = 0 then
@@ -1304,13 +1291,13 @@ begin
               else
                 AnalyzeText(IsDone); // Text Content
   until IsDone;
-  Result := True;
+  Result := TRUE;
 end;
 
 procedure TXmlParser.AnalyzeProlog;
           // Analyze XML Prolog or Text Declaration
 var
-  F: PChar;
+  F: PAnsiChar;
 begin
   CurAttr.Analyze(CurStart + 5, F);
   if EntityStack.Count = 0 then
@@ -1322,7 +1309,7 @@ begin
   CurFinal := StrPos(F, '?>');
   if CurFinal <> nil
     then
-    Inc(CurFinal)
+    INC(CurFinal)
   else
     CurFinal := StrEnd(CurStart) - 1;
   FCurEncoding := AnsiUpperCase(CurAttr.Value('encoding'));
@@ -1333,7 +1320,7 @@ begin
   CurContent := '';
 end;
 
-procedure TXmlParser.AnalyzeComment(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeComment(Start: PAnsiChar; var Final: PAnsiChar);
           // Analyze Comments
 begin
   Final := StrPos(Start + 4, '-->');
@@ -1341,15 +1328,15 @@ begin
     then
     Final := StrEnd(Start) - 1
   else
-    Inc(Final, 2);
+    INC(Final, 2);
   CurPartType := ptComment;
 end;
 
-procedure TXmlParser.AnalyzePI(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzePI(Start: PAnsiChar; var Final: PAnsiChar);
           // Analyze Processing Instructions (PI)
           // This is also called for Character
 var
-  F: PChar;
+  F: PAnsiChar;
 begin
   CurPartType := ptPI;
   Final := StrPos(Start + 2, '?>');
@@ -1357,7 +1344,7 @@ begin
     then
     Final := StrEnd(Start) - 1
   else
-    Inc(Final);
+    INC(Final);
   ExtractName(Start + 2, CWhitespace + ['?', '>'], F);
   SetStringSF(CurName, Start + 2, F);
   SetStringSF(CurContent, F + 1, Final - 2);
@@ -1381,7 +1368,7 @@ type
   TPhase = (phName, phDtd, phInternal, phFinishing);
 var
   Phase: TPhase;
-  F: PChar;
+  F: PAnsiChar;
   ExternalID: TExternalID;
   ExternalDTD: TXmlParser;
   DER: TDtdElementRec;
@@ -1394,7 +1381,7 @@ begin
   if FDtdcFinal <> nil then
   begin
     CurFinal := FDtdcFinal;
-    Exit;
+    EXIT;
   end;
 
   // --- Scan DTDc
@@ -1422,13 +1409,13 @@ begin
           CONTINUE;
         end;
       ']': Phase := phFinishing;
-      '>': Break;
+      '>': BREAK;
     else
-      if not (CurFinal^ in CWhitespace) then
+      if not (CharInSet(CurFinal^, CWhitespace)) then
       begin
         case Phase of
           phName:
-            if (CurFinal^ in CNameStart) then
+            if (CharInSet(CurFinal^, CNameStart)) then
             begin
               ExtractName(CurFinal, CWhitespace + ['[', '>'], F);
               SetStringSF(FRootName, CurFinal, F);
@@ -1459,8 +1446,8 @@ begin
 
       end;
     end;
-    Inc(CurFinal);
-  until False;
+    INC(CurFinal);
+  until FALSE;
 
   CurPartType := ptDtdc;
   CurName := '';
@@ -1479,7 +1466,7 @@ begin
   FDtdcFinal := CurFinal;
 end;
 
-procedure TXmlParser.AnalyzeDtdElements(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeDtdElements(Start: PAnsiChar; var Final: PAnsiChar);
           // Analyze the "Elements" of a DTD contained in the external or
           // internal DTD subset.
 var
@@ -1502,7 +1489,7 @@ begin
           CONTINUE;
         end;
       ']',
-        '>': Break;
+        '>': BREAK;
       '<':
         if StrLComp(Final, '<!ELEMENT', 9) = 0 then
           AnalyzeElementDecl(Final, Final)
@@ -1521,8 +1508,8 @@ begin
                   DER.ElementType := dePI;
                   DER.Start := Final;
                   AnalyzePI(Final, Final);
-                  DER.Target := PChar(CurName);
-                  DER.Content := PChar(CurContent);
+                  DER.Target := StringToPAnsiChar(CurName);
+                  DER.Content := StringToPAnsiChar(CurContent);
                   DER.AttrList := CurAttr;
                   DER.Final := Final;
                   DtdElementFound(DER);
@@ -1546,25 +1533,25 @@ begin
                   end;
 
     end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
 end;
 
 procedure TXmlParser.AnalyzeTag;
           // Analyze Tags
 var
-  S, F: PChar;
+  S, F: PAnsiChar;
   Attr: TAttr;
   ElemDef: TElemDef;
   AttrDef: TAttrDef;
-  I: Integer;
+  I: INTEGER;
 begin
   CurPartType := ptStartTag;
   S := CurStart + 1;
   if S^ = '/' then
   begin
     CurPartType := ptEndTag;
-    Inc(S);
+    INC(S);
   end;
   ExtractName(S, CWhitespace + ['/'], F);
   SetStringSF(CurName, S, F);
@@ -1629,9 +1616,9 @@ begin
         ReplaceCharacterEntities(Value);
         if (AttrType <> atCData) and (AttrType <> atUnknown)
           then
-          Value := TranslateEncoding(TrimWs(ConvertWs(Value, True)))
+          Value := TranslateEncoding(TrimWs(ConvertWs(Value, TRUE)))
         else
-          Value := TranslateEncoding(ConvertWs(Value, False));
+          Value := TranslateEncoding(ConvertWs(Value, FALSE));
       end;
   end;
 end;
@@ -1644,12 +1631,12 @@ begin
   if CurFinal = nil then
   begin
     CurFinal := StrEnd(CurStart) - 1;
-    CurContent := TranslateEncoding(StrPas(CurStart + Length(CDStart)));
+    CurContent := TranslateEncoding(string(StrPas(CurStart + Length(CDStart))));
   end
   else
   begin
     SetStringSF(CurContent, CurStart + Length(CDStart), CurFinal - 1);
-    Inc(CurFinal, Length(CDEnd) - 1);
+    INC(CurFinal, Length(CDEnd) - 1);
     CurContent := TranslateEncoding(CurContent);
   end;
 end;
@@ -1658,10 +1645,10 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
           (* Analyzes Text Content between Tags. CurFinal will point to the last content character.
              Content ends at a '<' character or at the end of the document.
              Entity References and Character Entity references are resolved.
-             If PackSpaces is True, contiguous Whitespace Characters will be compressed to
+             If PackSpaces is TRUE, contiguous Whitespace Characters will be compressed to
              one Space #x20 character, Whitespace at the beginning and end of content will
              be trimmed off and content which is or becomes empty is not returned to
-             the application (in this case, "IsDone" is set to False which causes the
+             the application (in this case, "IsDone" is set to FALSE which causes the
              Scan method to proceed directly to the next part. *)
 
   procedure ProcessEntity;
@@ -1669,7 +1656,7 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
                IN  "CurFinal" points to the ampersand
                OUT "CurFinal" points to the first character after the semi-colon ';' *)
   var
-    P: PChar;
+    P: PAnsiChar;
     Name: string;
     EntityDef: TEntityDef;
     ExternalEntity: TXmlParser;
@@ -1688,7 +1675,7 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
         else
           CurContent := CurContent + CHR(StrToIntDef(Copy(Name, 2, MaxInt), 32));
         CurFinal := P + 1;
-        Exit;
+        EXIT;
       end
 
       // Is it a Predefined Entity?
@@ -1697,35 +1684,35 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
         begin
           CurContent := CurContent + '<';
           CurFinal := P + 1;
-          Exit;
+          EXIT;
         end
         else
           if Name = 'gt' then
           begin
             CurContent := CurContent + '>';
             CurFinal := P + 1;
-            Exit;
+            EXIT;
           end
           else
             if Name = 'amp' then
             begin
               CurContent := CurContent + '&';
               CurFinal := P + 1;
-              Exit;
+              EXIT;
             end
             else
               if Name = 'apos' then
               begin
                 CurContent := CurContent + '''';
                 CurFinal := P + 1;
-                Exit;
+                EXIT;
               end
               else
                 if Name = 'quot' then
                 begin
                   CurContent := CurContent + '"';
                   CurFinal := P + 1;
-                  Exit;
+                  EXIT;
                 end;
 
       // Replace with Entity from DTD
@@ -1735,7 +1722,7 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
         if EntityDef.Value <> '' then
         begin
           EntityStack.Push(P + 1);
-          CurFinal := PChar(EntityDef.Value);
+          CurFinal := StringToPAnsiChar(EntityDef.Value);
         end
         else
         begin
@@ -1752,12 +1739,12 @@ procedure TXmlParser.AnalyzeText(var IsDone: BOOLEAN);
     end
     else
     begin
-      Inc(CurFinal);
+      INC(CurFinal);
     end;
   end;
 
 var
-  C: Integer;
+  C: INTEGER;
 begin
   CurFinal := CurStart;
   CurPartType := ptContent;
@@ -1784,23 +1771,23 @@ begin
             CONTINUE;
           end;
         end;
-      '<': Break;
+      '<': BREAK;
     else
-      Inc(C);
+      INC(C);
     end;
-    Inc(CurFinal);
-  until False;
+    INC(CurFinal);
+  until FALSE;
   CurContent := CurContent + TranslateEncoding(StrLPas(CurFinal - C, C));
   DEC(CurFinal);
 
   if FNormalize then
   begin
-    CurContent := ConvertWs(TrimWs(CurContent), True);
-    IsDone := CurContent <> ''; // IsDone will only get False if PackSpaces is True
+    CurContent := ConvertWs(TrimWs(CurContent), TRUE);
+    IsDone := CurContent <> ''; // IsDone will only get FALSE if PackSpaces is TRUE
   end;
 end;
 
-procedure TXmlParser.AnalyzeElementDecl(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeElementDecl(Start: PAnsiChar; var Final: PAnsiChar);
           (* Parse <!ELEMENT declaration starting at "Start"
              Final must point to the terminating '>' character
              XmlSpec 3.2:
@@ -1825,7 +1812,7 @@ procedure TXmlParser.AnalyzeElementDecl(Start: PChar; var Final: PChar);
 var
   Element: TElemDef;
   Elem2: TElemDef;
-  F: PChar;
+  F: PAnsiChar;
   DER: TDtdElementRec;
 begin
   Element := TElemDef.Create;
@@ -1833,8 +1820,8 @@ begin
   DER.Start := Start;
   repeat
     if Final^ = '>' then
-      Break;
-    if (Final^ in CNameStart) and (Element.Name = '') then
+      BREAK;
+    if (CharInSet(Final^, CNameStart)) and (Element.Name = '') then
     begin
       ExtractName(Final, CWhitespace, F);
       SetStringSF(Element.Name, Final, F);
@@ -1844,17 +1831,17 @@ begin
       begin
         Element.Definition := string(Final);
         Final := StrEnd(Final);
-        Break;
+        BREAK;
       end
       else
       begin
         SetStringSF(Element.Definition, Final + 1, F - 1);
         Final := F;
-        Break;
+        BREAK;
       end;
     end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
   Element.Definition := DelChars(Element.Definition, CWhitespace);
   ReplaceParameterEntities(Element.Definition);
   if Element.Definition = 'EMPTY' then
@@ -1882,7 +1869,7 @@ begin
   DtdElementFound(DER);
 end;
 
-procedure TXmlParser.AnalyzeAttListDecl(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeAttListDecl(Start: PAnsiChar; var Final: PAnsiChar);
           (* Parse <!ATTLIST declaration starting at "Start"
              Final must point to the terminating '>' character
              XmlSpec 3.3:
@@ -1910,7 +1897,7 @@ type
   TPhase = (phElementName, phName, phType, phNotationContent, phDefault);
 var
   Phase: TPhase;
-  F: PChar;
+  F: PAnsiChar;
   ElementName: string;
   ElemDef: TElemDef;
   AttrDef: TAttrDef;
@@ -1924,7 +1911,7 @@ begin
   AttrDef := nil;
   ElemDef := nil;
   repeat
-    if not (Final^ in CWhitespace) then
+    if not (CharInSet(Final^, CWhitespace)) then
       case Final^ of
         '%':
           begin
@@ -1939,7 +1926,7 @@ begin
             Final := EntityStack.Pop;
             CONTINUE;
           end;
-        '>': Break;
+        '>': BREAK;
       else
         case Phase of
           phElementName:
@@ -1989,7 +1976,7 @@ begin
               else
                 if StrLComp(Final, 'NOTATION', 8) = 0 then
                 begin
-                  Inc(Final, 8);
+                  INC(Final, 8);
                   AttrDef.AttrType := atNotation;
                   Phase := phNotationContent;
                 end
@@ -2061,7 +2048,7 @@ begin
                       AttrDef.DefaultType := adFixed;
               end
               else
-                if (Final^ in CQuoteChar) then
+                if (CharInSet(Final^, CQuoteChar)) then
                 begin
                   ExtractQuote(Final, AttrDef.Value, Final);
                   ReplaceParameterEntities(AttrDef.Value);
@@ -2076,8 +2063,8 @@ begin
 
         end;
       end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
 
   Final := StrScan(Final, '>');
 
@@ -2087,7 +2074,7 @@ begin
   DtdElementFound(DER);
 end;
 
-procedure TXmlParser.AnalyzeEntityDecl(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeEntityDecl(Start: PAnsiChar; var Final: PAnsiChar);
           (* Parse <!ENTITY declaration starting at "Start"
              Final must point to the terminating '>' character
              XmlSpec 4.2:
@@ -2114,7 +2101,7 @@ type
 var
   Phase: TPhase;
   IsParamEntity: BOOLEAN;
-  F: PChar;
+  F: PAnsiChar;
   ExternalID: TExternalID;
   EntityDef: TEntityDef;
   EntityDef2: TEntityDef;
@@ -2123,17 +2110,17 @@ begin
   Final := Start + 8; // First char after <!ENTITY
   DER.Start := Start;
   Phase := phName;
-  IsParamEntity := False;
+  IsParamEntity := FALSE;
   EntityDef := TEntityDef.Create;
   repeat
-    if not (Final^ in CWhitespace) then
+    if not (CharInSet(Final^, CWhitespace)) then
       case Final^ of
-        '%': IsParamEntity := True;
-        '>': Break;
+        '%': IsParamEntity := TRUE;
+        '>': BREAK;
       else
         case Phase of
           phName:
-            if Final^ in CNameStart then
+            if CharInSet(Final^, CNameStart) then
             begin
               ExtractName(Final, CWhitespace + CQuoteChar, F);
               SetStringSF(EntityDef.Name, Final, F);
@@ -2141,7 +2128,7 @@ begin
               Phase := phContent;
             end;
           phContent:
-            if Final^ in CQuoteChar then
+            if CharInSet(Final^, CQuoteChar) then
             begin
               ExtractQuote(Final, EntityDef.Value, Final);
               Phase := phFinalGT;
@@ -2160,11 +2147,11 @@ begin
           phNData:
             if StrLComp(Final, 'NDATA', 5) = 0 then
             begin
-              Inc(Final, 4);
+              INC(Final, 4);
               Phase := phNotationName;
             end;
           phNotationName:
-            if Final^ in CNameStart then
+            if CharInSet(Final^, CNameStart) then
             begin
               ExtractName(Final, CWhitespace + ['>'], F);
               SetStringSF(EntityDef.NotationName, Final, F);
@@ -2174,8 +2161,8 @@ begin
           phFinalGT: ; // -!- There is an error in the document if this branch is called
         end;
       end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
   if IsParamEntity then
   begin
     EntityDef2 := TEntityDef(ParEntities.Node(EntityDef.Name));
@@ -2201,7 +2188,7 @@ begin
   DtdElementFound(DER);
 end;
 
-procedure TXmlParser.AnalyzeNotationDecl(Start: PChar; var Final: PChar);
+procedure TXmlParser.AnalyzeNotationDecl(Start: PAnsiChar; var Final: PAnsiChar);
           // Parse <!NOTATION declaration starting at "Start"
           // Final must point to the terminating '>' character
           // XmlSpec 4.7: NotationDecl ::=  '<!NOTATION' S Name S (ExternalID |  PublicID) S? '>'
@@ -2210,7 +2197,7 @@ type
 var
   ExternalID: TExternalID;
   Phase: TPhase;
-  F: PChar;
+  F: PAnsiChar;
   NotationDef: TNotationDef;
   DER: TDtdElementRec;
 begin
@@ -2219,10 +2206,10 @@ begin
   Phase := phName;
   NotationDef := TNotationDef.Create;
   repeat
-    if not (Final^ in CWhitespace) then
+    if not (CharInSet(Final^, CWhitespace)) then
       case Final^ of
         '>',
-          #0: Break;
+          #0: BREAK;
       else
         case Phase of
           phName:
@@ -2244,8 +2231,8 @@ begin
           phEnd: ; // -!- There is an error in the document if this branch is called
         end;
       end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
   Notations.Add(NotationDef);
   Final := StrScanE(Final, '>');
 
@@ -2255,13 +2242,13 @@ begin
   DtdElementFound(DER);
 end;
 
-procedure TXmlParser.PushPE(var Start: PChar);
+procedure TXmlParser.PushPE(var Start: PAnsiChar);
           (* If there is a parameter entity reference found in the data stream,
              the current position will be pushed to the entity stack.
              Start:  IN  Pointer to the '%' character starting the PE reference
                      OUT Pointer to first character of PE replacement text *)
 var
-  P: PChar;
+  P: PAnsiChar;
   EntityDef: TEntityDef;
 begin
   P := StrScan(Start, ';');
@@ -2271,7 +2258,7 @@ begin
     if EntityDef <> nil then
     begin
       EntityStack.Push(P + 1);
-      Start := PChar(EntityDef.Value);
+      Start := StringToPAnsiChar(EntityDef.Value);
     end
     else
       Start := P + 1;
@@ -2281,23 +2268,23 @@ end;
 procedure TXmlParser.ReplaceCharacterEntities(var Str: string);
           // Replaces all Character Entity References in the String
 var
-  Start: Integer;
-  PAmp: PChar;
-  PSemi: PChar;
-  PosAmp: Integer;
-  Len: Integer; // Length of Entity Reference
+  Start: INTEGER;
+  PAmp: PAnsiChar;
+  PSemi: PAnsiChar;
+  PosAmp: INTEGER;
+  Len: INTEGER; // Length of Entity Reference
 begin
   if Str = '' then
-    Exit;
+    EXIT;
   Start := 1;
   repeat
-    PAmp := StrPos(PChar(Str) + Start - 1, '&#');
+    PAmp := StrPos(StringToPAnsiChar(Str) + Start - 1, '&#');
     if PAmp = nil then
-      Break;
+      BREAK;
     PSemi := StrScan(PAmp + 2, ';');
     if PSemi = nil then
-      Break;
-    PosAmp := PAmp - PChar(Str) + 1;
+      BREAK;
+    PosAmp := PAmp - StringToPAnsiChar(Str) + 1;
     Len := PSemi - PAmp + 1;
     if CompareText(Str[PosAmp + 2], 'x') = 0 // !!! Can't use "CHR" for Unicode characters > 255
       then
@@ -2306,7 +2293,7 @@ begin
       Str[PosAmp] := CHR(StrToIntDef(Copy(Str, PosAmp + 2, Len - 3), 32));
     Delete(Str, PosAmp + 1, Len - 1);
     Start := PosAmp + 1;
-  until False;
+  until FALSE;
 end;
 
 procedure TXmlParser.ReplaceParameterEntities(var Str: string);
@@ -2314,25 +2301,25 @@ procedure TXmlParser.ReplaceParameterEntities(var Str: string);
 
   procedure ReplaceEntities(var Str: string);
   var
-    Start: Integer;
-    PAmp: PChar;
-    PSemi: PChar;
-    PosAmp: Integer;
-    Len: Integer;
+    Start: INTEGER;
+    PAmp: PAnsiChar;
+    PSemi: PAnsiChar;
+    PosAmp: INTEGER;
+    Len: INTEGER;
     Entity: TEntityDef;
     Repl: string; // Replacement
   begin
     if Str = '' then
-      Exit;
+      EXIT;
     Start := 1;
     repeat
-      PAmp := StrPos(PChar(Str) + Start - 1, '%');
+      PAmp := StrPos(StringToPAnsiChar(Str) + Start - 1, '%');
       if PAmp = nil then
-        Break;
+        BREAK;
       PSemi := StrScan(PAmp + 2, ';');
       if PSemi = nil then
-        Break;
-      PosAmp := PAmp - PChar(Str) + 1;
+        BREAK;
+      PosAmp := PAmp - StringToPAnsiChar(Str) + 1;
       Len := PSemi - PAmp + 1;
       Entity := TEntityDef(ParEntities.Node(Copy(Str, PosAmp + 1, Len - 2)));
       if Entity <> nil then
@@ -2345,7 +2332,7 @@ procedure TXmlParser.ReplaceParameterEntities(var Str: string);
       Delete(Str, PosAmp, Len);
       Insert(Repl, Str, PosAmp);
       Start := PosAmp + Length(Repl);
-    until False;
+    until FALSE;
   end;
 begin
   ReplaceEntities(Str);
@@ -2356,27 +2343,27 @@ procedure TXmlParser.ReplaceGeneralEntities(var Str: string);
 
   procedure ReplaceEntities(var Str: string);
   var
-    Start: Integer;
-    PAmp: PChar;
-    PSemi: PChar;
-    PosAmp: Integer;
-    Len: Integer;
+    Start: INTEGER;
+    PAmp: PAnsiChar;
+    PSemi: PAnsiChar;
+    PosAmp: INTEGER;
+    Len: INTEGER;
     EntityDef: TEntityDef;
     EntName: string;
     Repl: string; // Replacement
     ExternalEntity: TXmlParser;
   begin
     if Str = '' then
-      Exit;
+      EXIT;
     Start := 1;
     repeat
-      PAmp := StrPos(PChar(Str) + Start - 1, '&');
+      PAmp := StrPos(StringToPAnsiChar(Str) + Start - 1, '&');
       if PAmp = nil then
-        Break;
+        BREAK;
       PSemi := StrScan(PAmp + 2, ';');
       if PSemi = nil then
-        Break;
-      PosAmp := PAmp - PChar(Str) + 1;
+        BREAK;
+      PosAmp := PAmp - StringToPAnsiChar(Str) + 1;
       Len := PSemi - PAmp + 1;
       EntName := Copy(Str, PosAmp + 1, Len - 2);
       if EntName = 'lt' then
@@ -2403,7 +2390,7 @@ procedure TXmlParser.ReplaceGeneralEntities(var Str: string);
                   else
                   begin // External Entity
                     ExternalEntity := LoadExternalEntity(EntityDef.SystemId, EntityDef.PublicId, EntityDef.NotationName);
-                    Repl := StrPas(ExternalEntity.DocBuffer); // !!! What if it contains a Text Declaration?
+                    Repl := string(StrPas(ExternalEntity.DocBuffer)); // !!! What if it contains a Text Declaration?
                     ExternalEntity.Free;
                   end;
                   ReplaceEntities(Repl); // Recursion
@@ -2414,7 +2401,7 @@ procedure TXmlParser.ReplaceGeneralEntities(var Str: string);
       Delete(Str, PosAmp, Len);
       Insert(Repl, Str, PosAmp);
       Start := PosAmp + Length(Repl);
-    until False;
+    until FALSE;
   end;
 begin
   ReplaceEntities(Str);
@@ -2457,14 +2444,11 @@ function TXmlParser.TranslateEncoding(const Source: string): string;
           // If you want your application to understand or create other encodings, you
           // override this function.
 begin
-{$IFDEF UNICODE}
-  Result := Source;
-{$ELSE}
-  if CurEncoding = 'UTF-8' then
-    Result := Utf8ToAnsi(Source)
+  if CurEncoding = 'UTF-8'
+    then
+    Result := string(Utf8ToAnsi(Source))
   else
     Result := Source;
-{$ENDIF UNICODE}
 end;
 
 procedure TXmlParser.DtdElementFound(DtdElementRec: TDtdElementRec);
@@ -2477,7 +2461,7 @@ procedure TXmlParser.DtdElementFound(DtdElementRec: TDtdElementRec);
 begin
 end;
 
-function TXmlParser.GetDocBuffer: PChar;
+function TXmlParser.GetDocBuffer: PAnsiChar;
          // Returns FBuffer or a pointer to a NUL char if Buffer is empty
 begin
   if FBuffer = nil
@@ -2500,10 +2484,10 @@ begin
   inherited Destroy;
 end;
 
-procedure TObjectList.Delete(Index: Integer);
+procedure TObjectList.Delete(Index: INTEGER);
 begin
   if (Index < 0) or (Index >= Count) then
-    Exit;
+    EXIT;
   TObject(Items[Index]).Free;
   inherited Delete(Index);
 end;
@@ -2541,13 +2525,13 @@ A generic List of Name-Value Pairs, based on the TObjectList introduced in Delph
 
 procedure TNvpList.Add(Node: TNvpNode);
 var
-  I: Integer;
+  I: INTEGER;
 begin
   for I := Count - 1 downto 0 do
     if Node.Name > TNvpNode(Items[I]).Name then
     begin
       Insert(I + 1, Node);
-      Exit;
+      EXIT;
     end;
   Insert(0, Node);
 end;
@@ -2555,14 +2539,14 @@ end;
 function TNvpList.Node(Name: string): TNvpNode;
           // Binary search for Node
 var
-  L, H: Integer; // Low, High Limit
-  T, C: Integer; // Test Index, Comparison result
-  Last: Integer; // Last Test Index
+  L, H: INTEGER; // Low, High Limit
+  T, C: INTEGER; // Test Index, Comparison result
+  Last: INTEGER; // Last Test Index
 begin
   if Count = 0 then
   begin
     Result := nil;
-    Exit;
+    EXIT;
   end;
 
   L := 0;
@@ -2571,22 +2555,22 @@ begin
   repeat
     T := (L + H) div 2;
     if T = Last then
-      Break;
+      BREAK;
     Result := TNvpNode(Items[T]);
     C := CompareStr(Result.Name, Name);
     if C = 0 then
-      Exit
+      EXIT
     else
       if C < 0 then
         L := T
       else
         H := T;
     Last := T;
-  until False;
+  until FALSE;
   Result := nil;
 end;
 
-function TNvpList.Node(Index: Integer): TNvpNode;
+function TNvpList.Node(Index: INTEGER): TNvpNode;
 begin
   if (Index < 0) or (Index >= Count)
     then
@@ -2607,7 +2591,7 @@ begin
     Result := '';
 end;
 
-function TNvpList.Value(Index: Integer): string;
+function TNvpList.Value(Index: INTEGER): string;
 begin
   if (Index < 0) or (Index >= Count)
     then
@@ -2616,7 +2600,7 @@ begin
     Result := TNvpNode(Items[Index]).Value;
 end;
 
-function TNvpList.Name(Index: Integer): string;
+function TNvpList.Name(Index: INTEGER): string;
 begin
   if (Index < 0) or (Index >= Count)
     then
@@ -2634,7 +2618,7 @@ attributes in XML Prologs, Text Declarations and PIs.
 ===============================================================================================
 *)
 
-procedure TAttrList.Analyze(Start: PChar; var Final: PChar);
+procedure TAttrList.Analyze(Start: PAnsiChar; var Final: PAnsiChar);
           // Analyze the Buffer for Attribute=Name pairs.
           // Terminates when there is a character which is not IN CNameStart
           // (e.g. '?>' or '>' or '/>')
@@ -2642,7 +2626,7 @@ type
   TPhase = (phName, phEq, phValue);
 var
   Phase: TPhase;
-  F: PChar;
+  F: PAnsiChar;
   Name: string;
   Value: string;
   Attr: TAttr;
@@ -2652,13 +2636,13 @@ begin
   Final := Start;
   repeat
     if (Final^ = #0) or (Final^ = '>') then
-      Break;
-    if not (Final^ in CWhitespace) then
+      BREAK;
+    if not (CharInSet(Final^, CWhitespace)) then
       case Phase of
         phName:
           begin
-            if not (Final^ in CNameStart) then
-              Exit;
+            if not (CharInSet(Final^, CNameStart)) then
+              EXIT;
             ExtractName(Final, CWhitespace + ['=', '/'], F);
             SetStringSF(Name, Final, F);
             Final := F;
@@ -2671,7 +2655,7 @@ begin
           end;
         phValue:
           begin
-            if Final^ in CQuoteChar then
+            if CharInSet(Final^, CQuoteChar) then
             begin
               ExtractQuote(Final, Value, F);
               Attr := TAttr.Create;
@@ -2684,8 +2668,8 @@ begin
             end;
           end;
       end;
-    Inc(Final);
-  until False;
+    INC(Final);
+  until FALSE;
 end;
 
 (*
@@ -2698,14 +2682,14 @@ List of TElemDef nodes.
 function TElemList.Node(Name: string): TElemDef;
           // Binary search for the Node with the given Name
 var
-  L, H: Integer; // Low, High Limit
-  T, C: Integer; // Test Index, Comparison result
-  Last: Integer; // Last Test Index
+  L, H: INTEGER; // Low, High Limit
+  T, C: INTEGER; // Test Index, Comparison result
+  Last: INTEGER; // Last Test Index
 begin
   if Count = 0 then
   begin
     Result := nil;
-    Exit;
+    EXIT;
   end;
 
   L := 0;
@@ -2714,30 +2698,30 @@ begin
   repeat
     T := (L + H) div 2;
     if T = Last then
-      Break;
+      BREAK;
     Result := TElemDef(Items[T]);
     C := CompareStr(Result.Name, Name);
     if C = 0 then
-      Exit
+      EXIT
     else
       if C < 0 then
         L := T
       else
         H := T;
     Last := T;
-  until False;
+  until FALSE;
   Result := nil;
 end;
 
 procedure TElemList.Add(Node: TElemDef);
 var
-  I: Integer;
+  I: INTEGER;
 begin
   for I := Count - 1 downto 0 do
     if Node.Name > TElemDef(Items[I]).Name then
     begin
       Insert(I + 1, Node);
-      Exit;
+      EXIT;
     end;
   Insert(0, Node);
 end;
@@ -2821,13 +2805,13 @@ begin
   FXmlParser.LoadFromFile(Filename);
 end;
 
-procedure TCustomXmlScanner.LoadFromBuffer(Buffer: PChar);
+procedure TCustomXmlScanner.LoadFromBuffer(Buffer: PAnsiChar);
           // Load XML Document from buffer
 begin
   FXmlParser.LoadFromBuffer(Buffer);
 end;
 
-procedure TCustomXmlScanner.SetBuffer(Buffer: PChar);
+procedure TCustomXmlScanner.SetBuffer(Buffer: PAnsiChar);
           // Refer to Buffer
 begin
   FXmlParser.SetBuffer(Buffer);
@@ -2943,7 +2927,7 @@ begin
     FOnNotation(Self, NotationDef);
 end;
 
-procedure TCustomXmlScanner.WhenDtdError(ErrorPos: PChar);
+procedure TCustomXmlScanner.WhenDtdError(ErrorPos: PAnsiChar);
           // Is called when the parser has found an Error in the DTD
 begin
   if Assigned(FOnDtdError) then
@@ -2954,9 +2938,9 @@ procedure TCustomXmlScanner.Execute;
           // Perform scanning
           // Scanning is done synchronously, i.e. you can expect events to be triggered
           // in the order of the XML data stream. Execute will finish when the whole XML
-          // document has been scanned or when the StopParser property has been set to True.
+          // document has been scanned or when the StopParser property has been set to TRUE.
 begin
-  FStopParser := False;
+  FStopParser := FALSE;
   FXmlParser.StartScan;
   while FXmlParser.Scan and (not FStopParser) do
     case FXmlParser.CurPartType of
@@ -2974,3 +2958,4 @@ begin
 end;
 
 end.
+

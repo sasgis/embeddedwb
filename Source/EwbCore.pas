@@ -3,10 +3,10 @@
 //							      *
 //                     Freeware Component                     *
 //                       For Delphi                           *
-//                            by                              *
-//                     Per Lindso Larsen                      *
+//                       For Delphi 5 to Delphi XE            *
+//                                                            *
 //      Developing Team:                                      *
-//          Eran Bodankin (bsalsa) -(bsalsa@gmail.com)       *
+//          Eran Bodankin (bsalsa) -(bsalsa@gmail.com)        *
 //          Serge Voloshenyuk (SergeV@bsalsa.com)             *
 //          Thomas Stutz (smot777@yahoo.com                   *
 //                                                            *
@@ -20,12 +20,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use/change/modify the component under 4 conditions:
@@ -35,7 +35,6 @@ You may use/change/modify the component under 4 conditions:
    of the other users.
 4. Please, consider donation in our web site!
 {*******************************************************************************}
-
 
 unit EwbCore;
 
@@ -160,7 +159,7 @@ type
   TMaskedCtrlCharEvent = procedure(Sender: TCustomEmbeddedWB; MaskedChar: Char) of object;
   TOMWindowMoveEvent = procedure(Sender: TCustomEmbeddedWB; cx, cy: Integer) of object;
 
-   {IDocHostShowUI Interface}
+  {IDocHostShowUI Interface}
   TShowHelpEvent = function(Sender: TObject; HWND: THandle; pszHelpFile: POleStr; uCommand: Integer;
     dwData: Longint; ptMouse: TPoint;
     var pDispatchObjectHit: IDispatch): HRESULT of object;
@@ -189,7 +188,7 @@ type
     const pguidCmdGroup: PGUID;
     const nCmdID: DWORD; var Done: Boolean) of object;
   TTranslateUrlEvent = procedure(Sender: TCustomEmbeddedWB; const pchURLIn: POleStr;
-    var ppchURLOut: Widestring) of object;
+    var ppchURLOut: WideString) of object;
 
 {$IFDEF USE_IOLECOMMANDTARGET}
   TRefreshEvent = procedure(Sender: TCustomEmbeddedWB; CmdID: Integer; var Cancel: Boolean) of object;
@@ -205,15 +204,15 @@ type
     pszRedir: PWidechar; uiCP: UINT; var Rezult: HRESULT) of object;
   {IAuthenticate Interface}
   TAuthenticateEvent = procedure(Sender: TCustomEmbeddedWB; var hwnd: HWnd;
-    var szUserName, szPassWord: Widestring; var Rezult: HRESULT) of object;
-   {IZoomEvents Interface}
+    var szUserName, szPassWord: WideString; var Rezult: HRESULT) of object;
+  {IZoomEvents Interface}
   TZoomPercentChangedEvent = function(Sender: TCustomEmbeddedWB; const ulZoomPercent: uLong): HRESULT of object;
-   {Script Error handling}
+  {Script Error handling}
   TScriptErrorAction = (eaContinue, eaCancel, eaAskUser);
   TScriptErrorEvent = procedure(Sender: TObject; ErrorLine, ErrorCharacter, ErrorCode, ErrorMessage, ErrorUrl: string;
     var ScriptErrorAction: TScriptErrorAction) of object;
 
-   {User Agent Mode Event}
+  {User Agent Mode Event}
   TSetUserAgentEvent = function(var UserAgent: string): HRESULT of object;
 
   { TCustomEmbeddedWB }
@@ -275,6 +274,7 @@ type
     FScriptErrorAction: TScriptErrorAction;
 {$IFDEF USE_IOLECOMMANDTARGET}
     FOnUnload: TNotifyEvent;
+    FOnStop: TNotifyEvent;
     FOnRefresh: TRefreshEvent;
     FOnCommandExec: TComTargetExecEvent;
 {$ENDIF}
@@ -306,12 +306,12 @@ type
     function GetDoc3: IHtmlDocument3;
     function GetDoc4: IHtmlDocument4;
     function GetDoc5: IHtmlDocument5;
-    function GetElemByID(const ID: Widestring): IHTMLElement;
+    function GetElemByID(const ID: WideString): IHTMLElement;
     function GetZoom: Integer;
     procedure SetZoom(const Value: Integer);
-    procedure setOpticalZoom(const Value: Integer);
-    function _getCookie: Widestring;
-    function GetCharSet: Widestring;
+    procedure SetOpticalZoom(const Value: Integer);
+    function _getCookie: WideString;
+    function GetCharSet: WideString;
     procedure SetCharSet(const Value: WideString);
     procedure SetDropHandlingType(const Value: TDragDropHandlingType);
     procedure SetDesignMode(const Value: Boolean);
@@ -337,7 +337,7 @@ type
     function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HRESULT;
       stdcall;
-      {IDocHostShowUI Interface }
+    {IDocHostShowUI Interface }
     function ShowHelp(HWND: THandle; pszHelpFile: POleStr; uCommand: Integer;
       dwData: Longint; ptMouse: TPoint; var pDispatchObjectHit: IDispatch): HRESULT; stdcall;
     function ShowMessage(HWND: THandle; lpstrText: POleStr; lpstrCaption: POleStr;
@@ -423,6 +423,7 @@ type
     FUserInterfaceValue: Cardinal;
     FOnSetUserAgent: TSetUserAgentEvent;
     FOnPreRefresh: TNotifyEvent;
+    FOnHookChildWindow: TNotifyEvent;
     procedure UpdateDownloadControlValues;
     procedure UpdateUserInterfaceValues;
     function CopyOptionKeyPath(Overrided: Boolean): PWideChar;
@@ -450,7 +451,7 @@ type
     function QueryCMDArrayStatus(CmdGroup: PGUID; cmds: TOleCmdArray): Boolean;
 
     procedure Client2HostWin(var CX, CY: Integer);
-      // just call it in OnClientToHostWindow handler
+    // just call it in OnClientToHostWindow handler
 
     function GetIEWin(const ClassName: string): HWND;
     procedure SetFocusToDoc;
@@ -459,10 +460,9 @@ type
 
     function ZoomRangeHigh: Integer;
     function ZoomRangeLow: Integer;
-    property Zoom: Integer read getZoom write setZoom;
-    property ZoomPercent: Integer read FZoomPercent write setOpticalZoom default 100;
+    property Zoom: Integer read GetZoom write SetZoom;
 
-    property Cookie: Widestring read _getCookie;
+    property Cookie: WideString read _getCookie;
     property DesignMode: Boolean read FDesignMode write SetDesignMode;
     {html functions}
     property Doc2: IHtmlDocument2 read GetDoc2;
@@ -474,18 +474,18 @@ type
     property DocDesignMode: TDocDesignMode read getDocDesignMode write
       setDocDesignMode;
     property CharactersSet: WideString read GetCharSet write SetCharSet;
-    property ElementByID[const ID: Widestring]: IHTMLElement read getElemByID;
+    property ElementByID[const ID: WideString]: IHTMLElement read getElemByID;
     function ScrollToElement(Element: IHTMLElement): Boolean;
-
 
     function GetElementNamespaceTable(out aTable: IElementNamespaceTable):
       Boolean;
 
 {$IFDEF RESEARCH_MODE}
-    property OnQueryInterface: OnQueryInterfaceEvent read fOnQueryInterface write fOnQueryInterface;
+    property OnQueryInterface: OnQueryInterfaceEvent read FOnQueryInterface write FOnQueryInterface;
 {$ENDIF}
     property CanGrabFocus: Boolean read FCanGrabFocus write FCanGrabFocus default True;
   published
+    property ZoomPercent: Integer read FZoomPercent write SetOpticalZoom default 100;
     property OnAllowFocusChange: TBoolQueryEvent read FOnAllowFocusChange write
       FOnAllowFocusChange;
     property DisableCtrlShortcuts: string read FDisableCtrlShortcuts write FDisableCtrlShortcuts;
@@ -564,6 +564,7 @@ type
       write FScriptErrorAction default eaContinue;
 {$IFDEF USE_IOLECOMMANDTARGET}
     property OnRefresh: TRefreshEvent read FOnRefresh write FOnRefresh;
+    property OnStop: TNotifyEvent read FOnStop write FOnStop;
     property OnUnload: TNotifyEvent read FOnUnload write FOnUnload;
     property OnCommandExec: TComTargetExecEvent read FOnCommandExec write
       fOnCommandExec;
@@ -587,6 +588,7 @@ type
       FOnPopulateNSTable;
     property OnAuthenticate: TAuthenticateEvent read FOnAuthenticate write
       FOnAuthenticate;
+    property OnPreRefresh: TNotifyEvent read FOnPreRefresh write FOnPreRefresh;
   end;
 
   TEwbCore = class(TCustomEmbeddedWB)
@@ -596,14 +598,13 @@ type
     property DisableCtrlShortcuts stored IsCtrlCharMask;
   end;
 
-//this two functions for using in custom OnShowContextMenu handler.
+  //this two functions for using in custom OnShowContextMenu handler.
 function IsSeTIEPopupMenus(ID: DWORD; rcm: TIEPopupMenus): Boolean;
 function ShowRightClickMenu(Sender: TObject; dwID: DWORD;
   const Target: IUnknown; const Context: IDispatch;
   const ppt: PPOINT;
   const EncodingSubMenu: OleVariant;
   preprocess: TMenuPreprocess = nil): Boolean;
-
 
 implementation
 
@@ -632,7 +633,8 @@ begin
   Result := False;
   ShDocLcHandle := GetSHDOCLCModule;
 
-  if ShDocLcHandle = 0 then Exit;
+  if ShDocLcHandle = 0 then
+    Exit;
 
   if Supports(Target, IOleCommandTarget, OleCommandTarget) and
     Supports(Target, IOleWindow, OleWindow) and
@@ -641,30 +643,29 @@ begin
     ParentMenu := Windows.LoadMenu(ShDocLcHandle,
       MAKEINTRESOURCE(CContextMenuID));
     if ParentMenu <> 0 then
-    try
-      SubMenu := GetSubMenu(ParentMenu, dwID);
-      FillChar(SubMenuItemInfo, SizeOf(SubMenuItemInfo), 0);
-      SubMenuItemInfo.cbSize := SizeOf(MENUITEMINFO);
-      SubMenuItemInfo.fMask := MIIM_SUBMENU;
-      SubMenuItemInfo.hSubMenu := HMENU(@EncodingSubMenu);
-      SetMenuItemInfo(SubMenu, IDM_LANGUAGE, False, SubMenuItemInfo);
+      try
+        SubMenu := GetSubMenu(ParentMenu, dwID);
+        FillChar(SubMenuItemInfo, SizeOf(SubMenuItemInfo), 0);
+        SubMenuItemInfo.cbSize := SizeOf(MENUITEMINFO);
+        SubMenuItemInfo.fMask := MIIM_SUBMENU;
+        SubMenuItemInfo.hSubMenu := HMENU(@EncodingSubMenu);
+        SetMenuItemInfo(SubMenu, IDM_LANGUAGE, False, SubMenuItemInfo);
 
-      if Assigned(Preprocess) then
-        Preprocess(Sender, dwID, SubMenu, Context);
+        if Assigned(Preprocess) then
+          Preprocess(Sender, dwID, SubMenu, Context);
 
-      PopupResult := Windows.TrackPopupMenuEx(SubMenu, TPM_LEFTALIGN
-        or TPM_TOPALIGN or TPM_RETURNCMD or TPM_RIGHTBUTTON
-        or TPM_HORPOSANIMATION or TPM_VERPOSANIMATION, ppt^.X, ppt^.Y,
-        WindowHandle, nil);
-      if PopupResult then
-        SendMessage(WindowHandle, WM_COMMAND, MakeWParam(LOWORD(PopupResult), 0), 0);
-      Result := True;
-    finally
-      DestroyMenu(ParentMenu);
-    end;
+        PopupResult := Windows.TrackPopupMenuEx(SubMenu, TPM_LEFTALIGN
+          or TPM_TOPALIGN or TPM_RETURNCMD or TPM_RIGHTBUTTON
+          or TPM_HORPOSANIMATION or TPM_VERPOSANIMATION, ppt^.X, ppt^.Y,
+          WindowHandle, nil);
+        if PopupResult then
+          SendMessage(WindowHandle, WM_COMMAND, MakeWParam(LOWORD(PopupResult), 0), 0);
+        Result := True;
+      finally
+        DestroyMenu(ParentMenu);
+      end;
   end;
 end;
-
 
 type
   { TnoDragDrop }
@@ -778,12 +779,19 @@ begin
   DownloadOptions := [DownloadImages, DownloadVideos, DownloadBGSounds];
   UserInterfaceOptions := [EnableThemes, EnablesFormsAutoComplete];
   FDropHandlingType := ddtMS;
+  FZoomPercent := 100;
   FDisableCtrlShortcuts := 'N';
 end;
 
 destructor TCustomEmbeddedWB.Destroy();
 begin
-  inherited;
+  if (CurrentHandle <> 0) and IsWindow(CurrentHandle) then
+  begin
+    // Allow inherited Destroy to destroy the window
+    WindowHandle := CurrentHandle;
+    CurrentHandle := 0;
+  end;
+  inherited Destroy;
 end;
 
 procedure TCustomEmbeddedWB.CreateWnd; //jls
@@ -793,17 +801,16 @@ begin
     WindowHandle := CurrentHandle;
     CurrentHandle := 0;
     Windows.SetParent(WindowHandle, TWinControl(Self).Parent.Handle);
-    MoveWindow(WindowHandle, 0, 0, TWinControl(Self).Parent.Width,
-      TWinControl(Self).Parent.Height, True); //Force a resize on the client window
+    MoveWindow(WindowHandle, Left, Top, Width, Height, True); //Force a resize on the client window
   end
   else
-    inherited;
+    inherited CreateWnd;
 end;
 
 procedure TCustomEmbeddedWB.DestroyWnd; //jls
 begin
   if (csDestroying in ComponentState) then
-    inherited
+    inherited DestroyWnd
   else
   begin
     Windows.SetParent(WindowHandle, Forms.Application.Handle); //Parent to the Application window which is 0x0 in size
@@ -915,7 +922,8 @@ begin
     Result := GetWindow(WindowHandle, GW_CHILD);
     repeat
       if (GetClassName(Result, szClass, SizeOf(szClass)) > 0) and
-        (AnsiStrComp(PChar(ClassName), szClass) = 0) then Exit;
+        (AnsiStrComp(PChar(ClassName), szClass) = 0) then
+        Exit;
       Result := GetWindow(Result, GW_CHILD);
     until not IsWindow(Result);
   end;
@@ -1001,11 +1009,10 @@ begin
     Range := DWORD(vaOut);
     if Value < LoWord(Range) then
       vaIn := LoWord(Range)
+    else if Value > HiWord(Range) then
+      vaIn := HiWord(Range)
     else
-      if Value > HiWord(Range) then
-        vaIn := HiWord(Range)
-      else
-        vaIn := Value;
+      vaIn := Value;
     InvokeCommand(nil, OLECMDID_OPTICAL_ZOOM, OLECMDEXECOPT_DONTPROMPTUSER, vaIn, vaOut);
     if Assigned(FOnZoomPercentChanged) then
       FOnZoomPercentChanged(Self, vaOut);
@@ -1100,7 +1107,6 @@ begin
 end;
 {$ENDIF}
 
-
 function TCustomEmbeddedWB.Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
   Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HRESULT;
 var
@@ -1191,9 +1197,10 @@ begin
     or (IsEqualGuid(rsid, IID_IHTMLOMWindowServices) and
     (FloatingHosting or Assigned(OnMove) or Assigned(Self.OnMoveBy)
     or Assigned(OnResize) or Assigned(OnResizeBy)))
-    or (IsEqualGUID(iid, IID_IAuthenticate) and Assigned(OnAuthenticate))
-    then Result := QueryInterface(iid, Obj) = S_OK
-  else Result := False;
+    or (IsEqualGUID(iid, IID_IAuthenticate) and Assigned(OnAuthenticate)) then
+    Result := QueryInterface(iid, Obj) = S_OK
+  else
+    Result := False;
 end;
 
 function TCustomEmbeddedWB.QueryService(const rsid, iid: TGUID; out Obj): HRESULT;
@@ -1292,7 +1299,7 @@ begin
     Result := S_FALSE;
 end;
 
-function TCustomEmbeddedWB.GetElemByID(const ID: Widestring): IHTMLElement;
+function TCustomEmbeddedWB.GetElemByID(const ID: WideString): IHTMLElement;
 var
   Doc3: IHTMLDocument3;
 begin
@@ -1314,7 +1321,7 @@ begin
   end;
 end;
 
-function TCustomEmbeddedWB.GetCharSet: Widestring;
+function TCustomEmbeddedWB.GetCharSet: WideString;
 begin
   Result := Doc2.charset;
 end;
@@ -1343,7 +1350,7 @@ end;
 
 const
   _DesignModeValues: array[TDocDesignMode] of string =
-  ('On', 'Off', 'Inherit', '');
+    ('On', 'Off', 'Inherit', '');
 
 function TCustomEmbeddedWB.GetDocDesignMode: TDocDesignMode;
 var
@@ -1416,12 +1423,12 @@ end;
 
 procedure TCustomEmbeddedWB.SetFocusToParent;
 begin
- {if IsWindow(WindowHandle) then
-  begin
-    Windows.SetParent(WindowHandle, Parent.Handle);
-    MoveWindow(WindowHandle, 0, 0, Parent.Width, Parent.Height, True);
-    Parent.SetFocus;
-  end;}
+  {if IsWindow(WindowHandle) then
+   begin
+     Windows.SetParent(WindowHandle, Parent.Handle);
+     MoveWindow(WindowHandle, 0, 0, Parent.Width, Parent.Height, True);
+     Parent.SetFocus;
+   end;}
   if IsWindow(WindowHandle) then
   begin
     Windows.SetParent(WindowHandle, TWinControl(Self).Parent.Handle);
@@ -1576,18 +1583,18 @@ begin
       Result := S_OK;
       if Assigned(PopUpMenu) then // Show assigned TPopupMenu
         PopUpMenu.Popup(Mouse.CursorPos.X, Mouse.CursorPos.Y);
-    end else
-      if FilterPopupMenu then
-      begin
-        ExecWB(CGetMimeSubMenuCommandID, OLECMDEXECOPT_DODEFAULT, EncodingSubMenu);
-        if ShowRightClickMenu(Self, dwID, CommandTarget, Context, ppt, EncodingSubMenu,
-          DoFilterPopupMenu) then
-          Result := S_OK
-        else
-          Result := S_FALSE;
-      end
+    end
+    else if FilterPopupMenu then
+    begin
+      ExecWB(CGetMimeSubMenuCommandID, OLECMDEXECOPT_DODEFAULT, EncodingSubMenu);
+      if ShowRightClickMenu(Self, dwID, CommandTarget, Context, ppt, EncodingSubMenu,
+        DoFilterPopupMenu) then
+        Result := S_OK
       else
         Result := S_FALSE;
+    end
+    else
+      Result := S_FALSE;
   end;
 end;
 
@@ -1596,14 +1603,13 @@ function TCustomEmbeddedWB.ShowHelp(HWND: THandle; pszHelpFile: POleStr; uComman
 begin
   if Assigned(FOnShowHelp) then
     Result := FOnShowHelp(Self, HWND, pszHelpFile, uCommand, dwData, ptMouse, pDispatchObjectHit)
+  else if (pszHelpFile = nil) and (HelpFile <> '') then
+  begin
+    HtmlHelp(HWND, PChar(HelpFile), uCommand, dwData);
+    Result := S_OK;
+  end
   else
-    if (pszHelpFile = nil) and (HelpFile <> '') then
-    begin
-      HtmlHelp(HWND, PChar(HelpFile), uCommand, dwData);
-      Result := S_OK;
-    end
-    else
-      Result := S_FALSE;
+    Result := S_FALSE;
 end;
 
 function TCustomEmbeddedWB.ShowMessage(HWND: THandle; lpstrText, lpstrCaption: POleStr;
@@ -1632,11 +1638,11 @@ type
 var
   ShiftState: TShiftState;
 begin
- {
-  Result := (FDisableCtrlShortcuts <> '') and (lpMsg^.message = WM_KEYDOWN)
-    and (((GetKeyState(VK_LCONTROL) < 0) and (GetKeyState(VK_MENU) >= 0)) or
-    ((GetKeyState(VK_RCONTROL) < 0) and (GetKeyState(VK_LMENU) >= 0)))
-    and (_CharPos(Char(lpMsg.wParam), FDisableCtrlShortcuts) > 0);      }
+  {
+   Result := (FDisableCtrlShortcuts <> '') and (lpMsg^.message = WM_KEYDOWN)
+     and (((GetKeyState(VK_LCONTROL) < 0) and (GetKeyState(VK_MENU) >= 0)) or
+     ((GetKeyState(VK_RCONTROL) < 0) and (GetKeyState(VK_LMENU) >= 0)))
+     and (_CharPos(Char(lpMsg.wParam), FDisableCtrlShortcuts) > 0);      }
 
   ShiftState := KeyDataToShiftState(PWMKey(lpMsg)^.KeyData);
   Result := (FDisableCtrlShortcuts <> '') and (lpMsg^.message = WM_KEYDOWN)
@@ -1649,8 +1655,8 @@ end;
 
 function TCustomEmbeddedWB.TranslateAccelerator(const lpMsg: PMSG;
   const pguidCmdGroup: PGUID; const nCmdID: DWORD): HRESULT;
- { Called by MSHTML when IOleInPlaceActiveObject.TranslateAccelerator or
-    IOleControlSite.TranslateAccelerator is called }
+{ Called by MSHTML when IOleInPlaceActiveObject.TranslateAccelerator or
+   IOleControlSite.TranslateAccelerator is called }
 var
   Filtered: Boolean;
 begin
@@ -1663,7 +1669,6 @@ begin
   else
     Result := S_FALSE;
 end;
-
 
 function TCustomEmbeddedWB.TranslateUrl(const dwTranslate: DWORD; const pchURLIn:
   POleStr; out ppchURLOut: POleStr): HRESULT;
@@ -1692,7 +1697,7 @@ end;
 procedure TCustomEmbeddedWB.UpdateUserInterfaceValues;
 const
   acardUserInterfaceValues: array[TUserInterfaceOption] of Cardinal =
-  ($00000001, $00000002, $00000004, $00000008,
+    ($00000001, $00000002, $00000004, $00000008,
     $00000010, $00000020, $00000040, $00000080,
     $00000100, $00000200, $00000400, $00000800,
     $00001000, $00002000, $00004000, $00010000, $00020000,
@@ -1709,11 +1714,10 @@ begin
         Inc(FUserInterfaceValue, acardUserInterfaceValues[uio]);
 end;
 
-
 procedure TCustomEmbeddedWB.UpdateDownloadControlValues;
 const
   acardDownloadControlValues: array[TDownloadControlOption] of Cardinal =
-  ($00000010, $00000020, $00000040, $00000080,
+    ($00000010, $00000020, $00000040, $00000080,
     $00000100, $00000200, $00000400, $00000800,
     $00001000, $00002000, $00004000, $00008000,
     $00010000, $00020000, $00040000, $10000000,
@@ -1744,9 +1748,14 @@ begin
   Result := LoWord(DWORD(vaOut));
 end;
 
-function TCustomEmbeddedWB._getCookie: Widestring;
+function TCustomEmbeddedWB._getCookie: WideString;
+var
+  D: IHTMLDocument2;
 begin
-  Result := OleObject.Document.Cookie;
+  if Supports(Document, IHTMLDocument2, D) then
+    Result := OleObject.Document.Cookie
+  else
+    Result := '';
 end;
 
 procedure TCustomEmbeddedWB.Client2HostWin(var CX, CY: Integer);
@@ -1767,22 +1776,32 @@ end;
 function TCustomEmbeddedWB.CommandTarget_QueryStatus(CmdGroup: PGUID; cCmds: Cardinal;
   prgCmds: POleCmd; CmdText: POleCmdText): HRESULT;
 begin
+  prgCmds.cmdf := OLECMDF_ENABLED;
   Result := S_OK;
 end;
-
 
 function TCustomEmbeddedWB.CommandTarget_Exec(CmdGroup: PGUID; nCmdID, nCmdexecopt: DWORD;
   const vaIn: OleVariant; var vaOut: OleVariant): HRESULT;
 var
   tmpCancel: Boolean;
+const
+{$J+}
+  LastTickEvent: Cardinal = 0;
+{$J-}
 begin
   Result := OLECMDERR_E_NOTSUPPORTED;
+
+  if (nCmdID = OLECMDID_STOP) then
+  begin
+    if Assigned(FOnStop) then
+      FOnStop(Self);
+  end;
+
   if CmdGroup <> nil then
   begin
     if IsEqualGuid(cmdGroup^, CGID_EXPLORER) then
     begin
       case nCmdID of
-
         OLECMDID_ONUNLOAD:
           if Assigned(FOnUnload) then
           begin
@@ -1793,35 +1812,44 @@ begin
 
         OLECMDID_PREREFRESH:
           begin
-            if (GetIEWin('Internet Explorer_Server') <> 0) or (GetIEWin('SysListView32') <> 0) then
-              if Assigned(FOnPreRefresh) then
+            if Assigned(FOnPreRefresh) then
+            begin
+              if GetTickCount - LastTickEvent > 150 then
+              begin
+                LastTickEvent := GetTickCount;
                 FOnPreRefresh(Self);
+              end;
+            end;
+
+            if Assigned(FOnHookChildWindow) then
+              if (GetIEWin('Internet Explorer_Server') <> 0) or (GetIEWin('SysListView32') <> 0) then
+                FOnHookChildWindow(Self);
           end;
       end
-    end else
-      if IsEqualGuid(cmdGroup^, CGID_DocHostCommandHandler) then
-      begin
-        case nCmdID of
-          ID_IE_F5_REFRESH {nCmdID 6041, F5},
-            ID_IE_CONTEXTMENU_REFRESH {nCmdID 6042, Refresh by ContextMenu},
-            IDM_REFRESH {nCmdID 2300}:
+    end
+    else if IsEqualGuid(cmdGroup^, CGID_DocHostCommandHandler) then
+    begin
+      case nCmdID of
+        ID_IE_F5_REFRESH {nCmdID 6041, F5},
+        ID_IE_CONTEXTMENU_REFRESH {nCmdID 6042, Refresh by ContextMenu},
+        IDM_REFRESH {nCmdID 2300}:
+          begin
+            if Assigned(FOnRefresh) then
             begin
-              if Assigned(FOnRefresh) then
-              begin
-                tmpCancel := False;
-                FOnRefresh(Self, nCmdID, tmpCancel);
-                if tmpCancel then
-                  Result := S_OK; //FIXME is it true? Why not OLECMDERR_E_CANCELED
-              end;
-              Exit;
+              tmpCancel := False;
+              FOnRefresh(Self, nCmdID, tmpCancel);
+              if tmpCancel then
+                Result := S_OK; //FIXME is it true? Why not OLECMDERR_E_CANCELED
             end;
-          OLECMDID_SHOWSCRIPTERROR:
-            begin
-              Result := ScriptErrorHandler(vaIn, vaOut);
-              Exit;
-            end;
-        end;
+            Exit;
+          end;
+        OLECMDID_SHOWSCRIPTERROR:
+          begin
+            Result := ScriptErrorHandler(vaIn, vaOut);
+            Exit;
+          end;
       end;
+    end;
   end;
   if Assigned(OnCommandExec) then
     Self.OnCommandExec(Self, CmdGroup, nCmdID, nCmdexecopt,
@@ -1857,12 +1885,11 @@ var
       if Status <> 0 then
         DispatchInvokeError(Status, ExcepInfo);
     end
+    else if Status = DISP_E_UNKNOWNNAME then
+      raise
+        EOleError.CreateFmt('''%s'' is not supported.', [PropName])
     else
-      if Status = DISP_E_UNKNOWNNAME then
-        raise
-          EOleError.CreateFmt('''%s'' is not supported.', [PropName])
-      else
-        OleCheck(Status);
+      OleCheck(Status);
   end;
 begin
   Result := S_OK;
@@ -1896,7 +1923,6 @@ begin
     end;
   end;
 end;
-
 
 function TCustomEmbeddedWB.PopulateNamespaceTable: HRESULT;
 begin
@@ -1951,3 +1977,4 @@ begin
 end;
 
 end.
+

@@ -1,13 +1,13 @@
 //***********************************************************
 //                      TExportFavorites                    *
 //                                                          *
-//               For Delphi 5,6, 7 , 2005, 2006             *
+//                     For Delphi 5 to XE                   *
 //                     Freeware Component                   *
 //                            by                            *
 //                     Eran Bodankin (bsalsa)               *
-//                     bsalsa@gmail.com                    *
+//                     bsalsa@gmail.com                     *
 //                                                          *
-//           Based on idea's by:  Troels Jakobsen           *
+//           Based on ideas by:  Troels Jakobsen            *
 //                                                          *
 //     Documentation and updated versions:                  *
 //               http://www.bsalsa.com                      *
@@ -20,12 +20,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -38,7 +38,9 @@ You may use, change or modify the component under 4 conditions:
 //$Id: ExportFavorites.pas,v 1.3 2006/11/26 05:55:31 bsalsa Exp $
 
 unit ExportFavorites;
-{$I EWB_jedi.inc}
+
+{$I EWB.inc}
+
 interface
 
 {$IFDEF DELPHI6_UP}
@@ -46,7 +48,14 @@ interface
 {$ENDIF}
 
 uses
-  Classes, dialogs, IniFiles, ShellApi, SHDocVw_EWB, ComCtrls, EmbeddedWB;
+  Classes, Dialogs, ShellApi, IniFiles, SHDocVw_EWB, ComCtrls, EwbCore, EmbeddedWB;
+
+const
+  ERROR_FAV_TARGET_PATH_INVALID = 101;
+  ERROR_FAV_TARGET_FILENAME_INVALID = 102;
+  ERROR_FAV_TARGET_FILENAME_EXTINVALID = 103;
+  ERROR_FAV_FAVORITES_PATH_INVALID = 104;
+  ERROR_FAV_NO_SUCCESS_MESSAGE = 105;
 
 type
   PUrlRec = ^TUrlRec;
@@ -57,100 +66,139 @@ type
     Level: Integer;
   end;
 
-type
+  TOnErrorEvent = procedure(Sender: TObject; const ErrorMsg: string; const ErrorCode: Byte) of object;
+  TOnMessageEvent = procedure(Sender: TObject; const Msg: string) of object;
+
+  TLocalization = class(TPersistent)
+  private
+    FTargetPathInvalid: string;
+    FTargetFileNameInvalid: string;
+    FTargetFileNameExtInvalid: string;
+    FFavoritesPathInvalid: string;
+    FNoSuccessMessage: string;
+    FChangeItMessage: string;
+    FHTMLTitle: string;
+  published
+    property TargetPathInvalid: string read FTargetPathInvalid write FTargetPathInvalid;
+    property TargetFileNameInvalid: string read FTargetFileNameInvalid write FTargetFileNameInvalid;
+    property TargetFileNameExtInvalid: string read FTargetFileNameExtInvalid write FTargetFileNameExtInvalid;
+    property FavoritesPathInvalid: string read FFavoritesPathInvalid write FFavoritesPathInvalid;
+    property NoSuccessMessage: string read FNoSuccessMessage write FNoSuccessMessage;
+    property ChangeItMessage: string read FChangeItMessage write FChangeItMessage;
+    property HTMLTitle: string read FHTMLTitle write FHTMLTitle;
+  end;
+
   TExportFavorite = class(TComponent)
   private
-    BmkList: TStringList;
-    fAbout: string;
+    FAbout: string;
+    FBmkList: TStringList;
+    FLocalization: TLocalization;
     FavFolder: string;
     FavList: TList;
-    fEnabled: Boolean;
-    fExploreFavFileFolder: Boolean;
+    FEnabled: Boolean;
+    FExploreFavFileFolder: Boolean;
     FFavoritesPath: string;
-    fNavigateOnComplete: Boolean;
-    fShowSuccessMessage: Boolean;
-    fStatusBar: TStatusBar;
-    fSuccessMessage: TStrings;
+    FNavigateOnComplete: Boolean;
+    FShowSuccessMessage: Boolean;
+    FStatusBar: TStatusBar;
+    FSuccessMessage: TStrings;
     FTargetFileName: string;
     FTargetPath: string;
-    fEmbeddedWB: TEmbeddedWB;
+    FEmbeddedWB: TCustomEmbeddedWB;
+    FOnError: TOnErrorEvent;
+    FOnSuccess: TOnMessageEvent;
     procedure GetFavoritesFolder;
-    procedure MakeBookmarkFile;
+    function MakeBookMarkFile: Boolean;
     procedure SearchURL(Folder: string; Level: Integer);
     procedure SetAbout(Value: string);
     procedure SetSuccessMessage(Value: TStrings);
     procedure TraverseFavList(Idx, PrevIdx: Integer);
-
+    function Check: Boolean;
   protected
     procedure MakeBookmark(UrlRec: PUrlRec);
     procedure MakeDocumentBottom;
     procedure MakeDocumentTop;
     procedure MakeHeaderBottom(UrlRec: PUrlRec);
     procedure MakeHeaderTop(UrlRec: PUrlRec);
-    procedure ExportFavoritesToIni;
   public
     SuccessFlag: Boolean;
     NavigatePath: string;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure ExportFavorites;
-
+    function ExportFavorites: Boolean;
   published
-    property About: string read fAbout write SetAbout;
-    property Enabled: boolean read fEnabled write fEnabled default True;
-    property ExploreFavFileOnComplete: Boolean read fExploreFavFileFolder write fExploreFavFileFolder default False;
+    property About: string read FAbout write SetAbout;
+    property Enabled: boolean read FEnabled write FEnabled default True;
+    property ExploreFavFileOnComplete: Boolean read FExploreFavFileFolder write FExploreFavFileFolder default False;
     property FavoritesPath: string read FFavoritesPath write FFavoritesPath;
-    property NarigateOnComplete: Boolean read fNavigateOnComplete write fNavigateOnComplete default False;
-    property ShowSuccessMessage: Boolean read fShowSuccessMessage write fShowSuccessMessage default True;
-    property StatusBar: TStatusBar read fStatusBar write fStatusBar;
-    property SuccessMessage: TStrings read fSuccessMessage write SetSuccessMessage;
+    property NavigateOnComplete: Boolean read FNavigateOnComplete write FNavigateOnComplete default False;
+    property StatusBar: TStatusBar read FStatusBar write FStatusBar;
+    property SuccessMessage: TStrings read FSuccessMessage write SetSuccessMessage;
     property TargetFileName: string read FTargetFileName write FTargetFileName;
     property TargetPath: string read FTargetPath write FTargetPath;
-    property EmbeddedWB: TEmbeddedWB read fEmbeddedWB write fEmbeddedWB;
+    property EmbeddedWB: TCustomEmbeddedWB read FEmbeddedWB write FEmbeddedWB;
+    property Localization: TLocalization read FLocalization write FLocalization;
+    property OnError: TOnErrorEvent read FOnError write FOnError;
+    property OnSuccess: TOnMessageEvent read FOnSuccess write FOnSuccess;
   end;
 
 implementation
 
 uses
-  Windows, SysUtils, Registry, Forms, IEConst;
+  Windows, SysUtils, {$IFDEF DELPHI5}EwbCoreTools, {$ENDIF}Registry, Forms, IEConst;
 
 constructor TExportFavorite.Create;
 begin
   FFavoritesPath := 'Auto';
   FTargetPath := 'C:\';
   FTargetFileName := 'newbook.htm';
-  fSuccessMessage := TStringList.Create;
-  fSuccessMessage.Add('Your favorites have been exported successfully!');
-  fSuccessMessage.Text := 'Your favorites have been exported to successfully!';
-  fShowSuccessMessage := True;
-  fAbout := 'TExportFavorites by bsalsa. ' + WEB_SITE;
+
+  FLocalization := TLocalization.Create;
+  FLocalization.TargetPathInvalid := 'The target path is invalid.';
+  FLocalization.TargetFileNameInvalid := 'The target file name is invalid.';
+  FLocalization.TargetFileNameExtInvalid := 'The target file name extension is invalid. It must be "*.htm".';
+  FLocalization.FavoritesPathInvalid := 'The Favorites Path is invalid.';
+  FLocalization.NoSuccessMessage := 'You must enter a SuccessMessage or turn off messages.';
+  FLocalization.ChangeItMessage := 'Please change it.';
+  FLocalization.HTMLTitle := 'Exported Favorites';
+
+  FSuccessMessage := TStringList.Create;
+  FSuccessMessage.Add('Your favorites have been exported successfully!');
+  FSuccessMessage.Text := 'Your favorites have been successfully exported to %s';
+  FShowSuccessMessage := True;
+  FAbout := 'TExportFavorites by bsalsa. ' + WEB_SITE;
+
+  FEnabled := True;
   SuccessFlag := False;
-  fEnabled := True;
-  fExploreFavFileFolder := false;
-  fNavigateOnComplete := false;
+  FExploreFavFileFolder := False;
+  FNavigateOnComplete := False;
   inherited;
 end;
 
 destructor TExportFavorite.Destroy;
 begin
-  fSuccessMessage.Free;
+  FLocalization.Free;
+  FSuccessMessage.Free;
   inherited Destroy;
 end;
 
 procedure TExportFavorite.SetSuccessMessage(Value: TStrings);
 begin
-  fSuccessMessage.Assign(Value)
+  FSuccessMessage.Assign(Value)
 end;
 
 procedure TExportFavorite.GetFavoritesFolder;
 var
-  Registry: TRegistry;
+  Reg: TRegistry;
 begin
-  Registry := TRegistry.Create;
-  Registry.RootKey := HKEY_CURRENT_USER;
-  Registry.OpenKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders', False);
-  FavFolder := Registry.ReadString('Favorites');
-  Registry.Free;
+  Reg := TRegistry.Create;
+  try
+    Reg.RootKey := HKEY_CURRENT_USER;
+    Reg.OpenKey('Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders', False);
+    FavFolder := Reg.ReadString('Favorites');
+  finally
+    Reg.Free;
+  end;
 end;
 
 procedure TExportFavorite.SearchURL(Folder: string; Level: Integer);
@@ -238,18 +286,18 @@ end;
 
 procedure TExportFavorite.MakeDocumentTop;
 begin
-  BmkList.Add('<!-- Made with ' + Application.Title + ' -->');
-  BmkList.Add('');
-  BmkList.Add('<TITLE>' + 'Exported Favorites' + '</TITLE>');
-  BmkList.Add('<H1>' + 'Exported Favorites' + '</H1>');
-  BmkList.Add('');
-  BmkList.Add('<DL><P>');
+  FBmkList.Add('<!-- Made with ' + Application.Title + ' -->');
+  FBmkList.Add('');
+  FBmkList.Add('<TITLE>' + FLocalization.HTMLTitle + '</TITLE>');
+  FBmkList.Add('<H1>' + FLocalization.HTMLTitle + '</H1>');
+  FBmkList.Add('');
+  FBmkList.Add('<DL><P>');
 end;
 
 procedure TExportFavorite.MakeDocumentBottom;
 begin
-  BmkList.Add('');
-  BmkList.Add('</DL><P>');
+  FBmkList.Add('');
+  FBmkList.Add('</DL><P>');
 end;
 
 procedure TExportFavorite.MakeHeaderTop(UrlRec: PUrlRec);
@@ -265,11 +313,11 @@ begin
       Idx := I + 1;
   for I := Idx to Length(UrlRec.Rep) do
     A[I - Idx] := UrlRec.Rep[I];
-  BmkList.Add('');
+  FBmkList.Add('');
   for I := 1 to UrlRec.Level do
     S := S + '    ';
-  BmkList.Add(S + '<DT><H3>' + A + '</H3>');
-  BmkList.Add(S + '<DL><P>');
+  FBmkList.Add(S + '<DT><H3>' + A + '</H3>');
+  FBmkList.Add(S + '<DL><P>');
 end;
 
 procedure TExportFavorite.MakeHeaderBottom(UrlRec: PUrlRec);
@@ -279,8 +327,8 @@ var
 begin
   for I := 1 to UrlRec.Level do
     S := S + '    ';
-  BmkList.Add(S + '</DL><P>');
-  BmkList.Add('');
+  FBmkList.Add(S + '</DL><P>');
+  FBmkList.Add('');
 end;
 
 procedure TExportFavorite.MakeBookmark(UrlRec: PUrlRec);
@@ -291,7 +339,7 @@ begin
   Delete(UrlRec.UrlName, Length(UrlRec.UrlName), 1);
   for I := 1 to UrlRec.Level do
     S := S + '    ';
-  BmkList.Add(S + '<DT><A HREF="' + UrlRec.UrlPath + '">' +
+  FBmkList.Add(S + '<DT><A HREF="' + UrlRec.UrlPath + '">' +
     UrlRec.UrlName + '</A>' + '<BR>');
 end;
 
@@ -317,155 +365,117 @@ begin
   end;
 end;
 
-procedure TExportFavorite.MakeBookmarkFile;
+function TExportFavorite.Check: Boolean;
 begin
-  if FTargetPath = '' then
+  Result := (FTargetPath <> '') and DirectoryExists(FTargetPath);
+  if Result then
   begin
-    MessageDlg('The target path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    exit;
-  end;
-  if FTargetFileName = '' then
-  begin
-    MessageDlg('The target file name is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if not (pos('htm', FTargetFileName) > 1) then
-  begin
-    MessageDlg('The target file name extension is invalid.' + #10 + #13 + 'Please change it to "*.htm".', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if FFavoritesPath = '' then
-  begin
-    MessageDlg('The Location path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if FSuccessMessage.Text = '' then
-  begin
-    MessageDlg('You must enter a message or turn off messages.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-{$IFDEF DELPHI6_UP}{$WARN SYMBOL_PLATFORM OFF}{$ENDIF}
-  NavigatePath := IncludeTrailingBackslash(FTargetPath) + FTargetFileName;
-{$IFDEF DELPHI6_UP}{$WARN SYMBOL_PLATFORM ON}{$ENDIF}
-  BmkList := TStringList.Create;
-  try
-    MakeDocumentTop;
-    TraverseFavList(0, -1);
-    MakeDocumentBottom;
-    try
-      BmkList.SaveToFile(NavigatePath);
-    except on EFCreateError do
-      begin
-        MessageDlg('The target file name is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      end;
-    end;
-  finally
-    BmkList.Free;
-  end;
-  if ShowSuccessMessage then
-    MessageDlg(SuccessMessage.Text + 'The file name is: ' + NavigatePath, mtInformation, [MbOk], 0);
-  if assigned(fStatusBar) then
-    FStatusBar.SimpleText := SuccessMessage.Text + 'The file name is: ' + NavigatePath;
-end;
-
-procedure TExportFavorite.ExportFavorites;
-var
-  I: Integer;
-begin
-  if not FEnabled then
-    Exit;
-  FavList := TList.Create;
-  try
-    if FFavoritesPath = 'Auto' then
-      GetFavoritesFolder
-    else
-      FavFolder := FFavoritesPath;
-    if (FavFolder <> '') then
-    begin
-      SearchURL(FavFolder, 1);
-      FavList.Sort(SortFunction);
-      MakeBookmarkFile;
-      SuccessFlag := True;
-      if fExploreFavFileFolder then
-        ShellExecute(Forms.Application.Handle, 'explore', Pchar(FTargetPath), nil,
-          nil, SW_SHOWNORMAL);
-      if fNavigateOnComplete then
-        if Assigned(fEmbeddedWB) then
-          fEmbeddedWB.Navigate(FTargetPath + FTargetFileName)
-        else
-          MessageDlg(ASS_MESS, mtError, [MbOk], 0);
-    end
-    else
-    begin
-      MessageDlg('The favorites file path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      exit;
-    end;
-    for I := 0 to FavList.Count - 1 do
-      Dispose(PUrlRec(FavList[I]));
-  finally
-    FavList.Free;
-  end;
-end;
-
-procedure TExportFavorite.ExportFavoritesToIni;
-var
-  I: Integer;
-  // ini : TIniFile;
-begin
-  if not FEnabled then
-    Exit;
-  FavList := TList.Create;
-  if FFavoritesPath = 'Auto' then
-    GetFavoritesFolder
-  else
-    FavFolder := FFavoritesPath;
-  if (FavFolder <> '') then
-  begin
-    SearchURL(FavFolder, 1);
-    FavList.Sort(SortFunction);
-         //--------
-    if FTargetPath = '' then
-    begin
-      MessageDlg('The target path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      exit;
-    end;
-    if FTargetFileName = '' then
-    begin
-      MessageDlg('The target file name is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      exit;
-    end;
-    if FFavoritesPath = '' then
-    begin
-      MessageDlg('The Location path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      exit;
-    end;
-    if fSuccessMessage.Text = '' then
-    begin
-      MessageDlg('You must enter a message or turn off messages.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-      exit;
-    end;
-    NavigatePath := FTargetPath + '\' + FTargetFileName;
-    BmkList := TStringList.Create;
-   //Ini := TIniFile.create(FTargetPath);
-
-    SuccessFlag := True;
-    if fExploreFavFileFolder then
-      ShellExecute(Forms.Application.Handle, 'explore', Pchar(FTargetPath), nil,
-        nil, SW_SHOWNORMAL);
-    if fNavigateOnComplete then
-      if Assigned(fEmbeddedWB) then
-        fEmbeddedWB.Navigate(FTargetPath + FTargetFileName)
-      else
-        MessageDlg(ASS_MESS, mtError, [MbOk], 0);
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.TargetPathInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_TARGET_PATH_INVALID);
+    Result := False;
   end
-  else
+  else if FTargetFileName = '' then
   begin
-    MessageDlg('The favorites file path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    exit;
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.TargetFileNameInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_TARGET_FILENAME_INVALID);
+    Result := False;
+  end
+  else if not (Pos('htm', FTargetFileName) > 1) then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.TargetFileNameExtInvalid + #10#13 + FLocalization.ChangeItMessage + '"*.htm"', ERROR_FAV_TARGET_FILENAME_EXTINVALID);
+    Result := False;
+  end
+  else if Trim(FFavoritesPath) = '' then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, Localization.FavoritesPathInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_FAVORITES_PATH_INVALID);
+    Result := False;
+  end
+  else if Trim(FSuccessMessage.Text) = '' then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.NoSuccessMessage + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_NO_SUCCESS_MESSAGE);
+    Result := False;
   end;
-  for I := 0 to FavList.Count - 1 do
-    Dispose(PUrlRec(FavList[I]));
-  FavList.Free;
+end;
+
+function TExportFavorite.MakeBookMarkFile: Boolean;
+begin
+  Result := Check;
+  if Result then
+  begin
+{$IFDEF DELPHI6_UP}{$WARN SYMBOL_PLATFORM OFF}{$ENDIF}
+    NavigatePath := IncludeTrailingBackslash(FTargetPath) + FTargetFileName;
+{$IFDEF DELPHI6_UP}{$WARN SYMBOL_PLATFORM ON}{$ENDIF}
+    FBmkList := TStringList.Create;
+    try
+      MakeDocumentTop;
+      TraverseFavList(0, -1);
+      MakeDocumentBottom;
+      try
+        FBmkList.SaveToFile(NavigatePath);
+      except on EFCreateError do
+        begin
+          if Assigned(FOnError) then
+            FOnError(Self, FLocalization.TargetFileNameInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_TARGET_FILENAME_INVALID);
+          Result := False;
+        end;
+      end;
+    finally
+      FBmkList.Free;
+    end;
+    if Result then
+    begin
+      if Assigned(FOnSuccess) then
+        FOnSuccess(Self, Format(SuccessMessage.Text, [NavigatePath]));
+      if Assigned(FStatusBar) then
+        FStatusBar.SimpleText := Format(SuccessMessage.Text, [NavigatePath]);
+    end;
+  end;
+end;
+
+function TExportFavorite.ExportFavorites: Boolean;
+var
+  I: Integer;
+begin
+  Result := Enabled;
+  if Result then
+  begin
+    FavList := TList.Create;
+    try
+      if FFavoritesPath = 'Auto' then
+        GetFavoritesFolder
+      else
+        FavFolder := FFavoritesPath;
+      if (Trim(FavFolder) <> '') then
+      begin
+        SearchURL(FavFolder, 1);
+        FavList.Sort(SortFunction);
+        Result := MakeBookMarkFile;
+        if Result then
+        begin
+          SuccessFlag := True;
+          if FExploreFavFileFolder then
+            ShellExecute(Forms.Application.Handle, 'explore', PChar(FTargetPath), nil,
+              nil, SW_SHOWNORMAL);
+          if FNavigateOnComplete then
+            if Assigned(FEmbeddedWB) then
+              FEmbeddedWB.Navigate(FTargetPath + FTargetFileName)
+            else
+              MessageDlg(ASS_MESS, mtError, [MbOk], 0);
+        end;
+      end
+      else if Assigned(FOnError) then
+        FOnError(Self, Localization.FavoritesPathInvalid, ERROR_FAV_FAVORITES_PATH_INVALID);
+
+      for I := 0 to FavList.Count - 1 do
+        Dispose(PUrlRec(FavList[I]));
+    finally
+      FavList.Free;
+    end;
+  end;
 end;
 
 end.
+

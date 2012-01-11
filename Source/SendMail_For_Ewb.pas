@@ -14,7 +14,7 @@ unit SendMail_For_Ewb;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   Classes, Dialogs, Controls, Messages, MAPI;
@@ -465,7 +465,11 @@ var
 begin
   SendThread := TSendMailThread.Create(Self);
   SendThread.FreeOnTerminate := True;
-  SendThread.Resume;
+  {$IFDEF DELPHI2010_UP}
+    SendThread.Start;
+  {$ELSE}
+    SendThread.Resume;
+  {$ENDIF}
   Result := True;
   //  FLastError := SendThread.WaitFor;
   //  FLastError := SendEMailByMAPI(SenderName, SenderAddress, Subject, Body, Recipients, Attachments, AttachmentNames, EditDialog, ResolveNames, RequestReceipt, 0);

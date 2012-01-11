@@ -15,12 +15,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -36,11 +36,10 @@ unit EwbAcc;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   ActiveX, SysUtils, ShlObj, Windows, UrlMon, IEConst;
-
 
 type
   IObjectIdentity = interface
@@ -48,23 +47,26 @@ type
     function IsEqualObject(unk: IUnknown): HRESULT; stdcall;
   end;
 
+  type
+  PInternetPerConnOption = ^INTERNET_PER_CONN_OPTION;
   INTERNET_PER_CONN_OPTION = record
     dwOption: DWORD;
-    Value: record
-      case Integer of
-        1: (dwValue: DWORD);
-        2: (pszValue: PAnsiChar);
-        3: (ftValue: TFileTime);
+    case Integer of
+      0: (dwValue: DWORD);
+      1: (pszValue:LPTSTR);
+      2: (ftValue: FILETIME);
     end;
-  end;
-  LPINTERNET_PER_CONN_OPTION = ^INTERNET_PER_CONN_OPTION;
+
+  PInternetPerConnOptionList = ^INTERNET_PER_CONN_OPTION_LIST;
   INTERNET_PER_CONN_OPTION_LIST = record
-    dwSize: DWORD;
-    pszConnection: LPTSTR;
-    dwOptionCount: DWORD;
-    dwOptionError: DWORD;
-    pOptions: LPINTERNET_PER_CONN_OPTION;
+    dwSize        :DWORD;
+    pszConnection :LPTSTR;
+    dwOptionCount :DWORD;
+    dwOptionError :DWORD;
+    pOptions      :PInternetPerConnOption;
   end;
+
+  LPINTERNET_PER_CONN_OPTION = ^INTERNET_PER_CONN_OPTION;
   LPINTERNET_PER_CONN_OPTION_LIST = ^INTERNET_PER_CONN_OPTION_LIST;
 
 type
@@ -89,8 +91,8 @@ type
     wServicePackMajor: WORD;
     wServicePackMinor: WORD;
     wSuiteMask: WORD;
-    wProductType: BYTE;
-    wReserved: BYTE;
+    wProductType: Byte;
+    wReserved: Byte;
   end;
   TOSVersionInfoEx = OSVERSIONINFOEX;
   POSVersionInfoEx = ^TOSVersionInfoEx;
@@ -107,9 +109,9 @@ type
     //function GetBrowseContext(out ppihlbc: IHlinkBrowseContext): HRESULT; stdcall;
     //function Navigate(grfHLNF: DWORD; pbc: IBindCtx; pibsc: IBindStatusCallback; pihlNavigate: IHLink): HRESULT; stdcall;
     function OnNavigate(grfHLNF: DWORD; pimkTarget: IMoniker; pwzLocation,
-      pwzFriendlyName: pWideChar; dwreserved: DWORD): HRESULT; stdcall;
+      pwzFriendlyName: PWideChar; dwreserved: DWORD): HRESULT; stdcall;
     function UpdateHlink(uHLID: ULONG; pimkTarget: IMoniker; pwzLocation,
-      pwzFriendlyName: pWideChar): HRESULT; stdcall;
+      pwzFriendlyName: PWideChar): HRESULT; stdcall;
   end;
 
   IDownloadManager = interface(IUnknown)
@@ -151,9 +153,9 @@ type
   TEntry = record
     Url: string;
     Title: string;
-    Lastvisited,
-      LastUpdated,
-      Expires: TDateTime;
+    LastVisited,
+    LastUpdated,
+    Expires: TDateTime;
   end;
 
   IUrlHistoryStg = interface(IUnknown)
@@ -183,8 +185,8 @@ type
     cbSize: ULONG;
     dwFlags: DWORD;
     dwDoubleClick: DWORD;
-    chHostCss: POLESTR;
-    chHostNS: POLESTR;
+    chHostCss: POleStr;
+    chHostNS: POleStr;
   end;
 
 type
@@ -197,10 +199,10 @@ type
 
   IDocHostShowUI = interface(IUnknown)
     ['{c4d244b0-d43e-11cf-893b-00aa00bdce1a}']
-    function ShowMessage(hwnd: THandle; lpstrText: POLESTR; lpstrCaption: POLESTR;
-      dwType: longint; lpstrHelpFile: POLESTR; dwHelpContext: longint;
+    function ShowMessage(hwnd: THandle; lpstrText: POleStr; lpstrCaption: POleStr;
+      dwType: longint; lpstrHelpFile: POleStr; dwHelpContext: longint;
       var plResult: LRESULT): HRESULT; stdcall;
-    function ShowHelp(hwnd: THandle; pszHelpFile: POLESTR; uCommand: integer;
+    function ShowHelp(hwnd: THandle; pszHelpFile: POleStr; uCommand: integer;
       dwData: longint; ptMouse: TPoint;
       var pDispatchObjectHit: IDispatch): HRESULT; stdcall;
   end;
@@ -225,20 +227,20 @@ type
       const fRameWindow: BOOL): HRESULT; stdcall;
     function TranslateAccelerator(const lpMsg: PMSG; const pguidCmdGroup: PGUID;
       const nCmdID: DWORD): HRESULT; stdcall;
-    function GetOptionKeyPath(out pchKey: POLESTR; const dw: DWORD): HRESULT;
+    function GetOptionKeyPath(out pchKey: POleStr; const dw: DWORD): HRESULT;
       stdcall;
     function GetDropTarget(const pDropTarget: IDropTarget;
       out ppDropTarget: IDropTarget): HRESULT; stdcall;
     function GetExternal(out ppDispatch: IDispatch): HRESULT; stdcall;
-    function TranslateUrl(const dwTranslate: DWORD; const pchURLIn: POLESTR;
-      out ppchURLOut: POLESTR): HRESULT; stdcall;
+    function TranslateUrl(const dwTranslate: DWORD; const pchURLIn: POleStr;
+      out ppchURLOut: POleStr): HRESULT; stdcall;
     function FilterDataObject(const pDO: IDataObject;
       out ppDORet: IDataObject): HRESULT; stdcall;
   end;
 
   IDocHostUIHandler2 = interface(IDocHostUIHandler)
     ['{3050f6d0-98b5-11cf-bb82-00aa00bdce0b}']
-    function GetOverrideKeyPath(out pchKey: POLESTR; dw: DWORD): HRESULT;
+    function GetOverrideKeyPath(out pchKey: POleStr; dw: DWORD): HRESULT;
       stdcall;
   end;
 

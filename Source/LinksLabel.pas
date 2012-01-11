@@ -1,7 +1,7 @@
 //***********************************************************
-//                         TLinkLabel                       *
+//                         TLinksLabel                      *
 //                                                          *
-//                    For Delphi 5 to 2006                  *
+//                     For Delphi 5 to XE                   *
 //                     Freeware Component                   *
 //                            by                            *
 //                     Eran Bodankin (bsalsa)               *                                                            //                   per.lindsoe@larsen.dk                  *
@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -32,15 +32,15 @@ You may use, change or modify the component under 4 conditions:
    for the benefit of the other users.
 4. Please consider donation in our web site!
 {*******************************************************************************}
-//$Id: LinkLabel.pas,v 1.2 2006/11/15 21:01:42 sergev Exp $
+//$Id: LinksLabel.pas,v 1.2 2006/11/15 21:01:42 sergev Exp $
 
 {$B-}
 
-unit LinkLabel;
+unit LinksLabel;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   SysUtils, Windows, ExtCtrls, Dialogs, Controls, StdCtrls, Messages, Classes,
@@ -106,7 +106,7 @@ type
   end;
 //------------------------------------------------------------------------------
 type
-  TLinkLabel = class;
+  TLinksLabel = class;
 
   TTextFlick = class(TPersistent)
   private
@@ -142,7 +142,7 @@ type
     property Speed: Integer read FSpeed write SetSpeed default 100;
   end;
 
-  TLinkLabel = class(TCustomLabel)
+  TLinksLabel = class(TCustomLabel)
   private
     FAutoSize: Boolean;
     FAlignment: TAlignment;
@@ -294,7 +294,7 @@ begin
 end;
 // Component--------------------------------------------------------------------
 
-constructor TLinkLabel.Create(AOwner: TComponent);
+constructor TLinksLabel.Create(AOwner: TComponent);
 begin
   inherited;
 {$IFDEF DELPHI6_UP}
@@ -348,7 +348,7 @@ begin
   end;
 end;
 
-destructor TLinkLabel.Destroy;
+destructor TLinksLabel.Destroy;
 begin
   with FLaunch do
   begin
@@ -367,7 +367,7 @@ begin
   inherited;
 end;
 
-procedure TLinkLabel.Loaded;
+procedure TLinksLabel.Loaded;
 begin
   inherited;
   Font.Color := FLinkColor;
@@ -403,7 +403,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.CMTextChanged(var Message: TMessage);
+procedure TLinksLabel.CMTextChanged(var Message: TMessage);
 begin
   inherited;
   if Caption = '' then
@@ -411,13 +411,13 @@ begin
   Invalidate;
 end;
 
-procedure TLinkLabel.CMFontChanged(var Msg: TMessage);
+procedure TLinksLabel.CMFontChanged(var Msg: TMessage);
 begin
   inherited;
   Invalidate;
 end;
 
-procedure TLinkLabel.Click;
+procedure TLinksLabel.Click;
 var
   WS: TWindowState;
   Param: string;
@@ -460,7 +460,7 @@ begin
   inherited;
 end;
 
-procedure TLinkLabel.DoCopyAddress(Sender: TObject);
+procedure TLinksLabel.DoCopyAddress(Sender: TObject);
 begin
   case FLaunch.FLaunchSettings of
     Http: Clipboard.AsText := FLaunch.FHttp.FAddress;
@@ -469,7 +469,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.CanvasTextOut(Canvas: TCanvas; X, Y: Integer; Text: string);
+procedure TLinksLabel.CanvasTextOut(Canvas: TCanvas; X, Y: Integer; Text: string);
 begin
   with Canvas do
   begin
@@ -489,7 +489,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.DoLaunch(Sender: TObject);
+procedure TLinksLabel.DoLaunch(Sender: TObject);
 var
   Param: string;
   Car: Cardinal;
@@ -523,7 +523,7 @@ begin
   Font.Color := FUpColor;
 end;
 
-procedure TLinkLabel.MouseMove(Shift: TShiftState; X, Y: Integer);
+procedure TLinksLabel.MouseMove(Shift: TShiftState; X, Y: Integer);
 begin
   inherited;
   if FHighlightOnMouseOver then
@@ -535,13 +535,13 @@ begin
   end;
 end;
 
-procedure TLinkLabel.MouseLeave(Sender: TObject);
+procedure TLinksLabel.MouseLeave(Sender: TObject);
 begin
   if FHighlightOnMouseOver then
     Font.Style := Font.Style - [fsBold];
 end;
 
-procedure TLinkLabel.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure TLinksLabel.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
   inherited;
   if (Button = mbLeft) and (FColorOnMouseClick) then
@@ -551,14 +551,14 @@ begin
       GetPopUpMenu;
 end;
 
-procedure TLinkLabel.Notification(AComponent: TComponent; Operation: TOperation);
+procedure TLinksLabel.Notification(AComponent: TComponent; Operation: TOperation);
 begin
   inherited Notification(AComponent, Operation);
   if (Operation = opRemove) and (AComponent = FImages) then
     FImages := nil;
 end;
 
-procedure TLinkLabel.Paint;
+procedure TLinksLabel.Paint;
 var
   Height, PosHeightX, PosWidthY, ModWidth, ModHeight,
     ModWidthX, ModHeightY: Integer;
@@ -629,12 +629,12 @@ begin
   end;
 end;
 
-procedure TLinkLabel.ImageListChange(Sender: TObject);
+procedure TLinksLabel.ImageListChange(Sender: TObject);
 begin
   Invalidate;
 end;
 
-function TLinkLabel.GetPopupMenu: TPopupMenu;
+function TLinksLabel.GetPopupMenu: TPopupMenu;
 var
   Pop: TPopupMenu;
   p: TPoint;
@@ -659,7 +659,7 @@ begin
   Result := Pop;
 end;
 
-function TLinkLabel.GetProgramPathFromExt(const Ext: string): string;
+function TLinksLabel.GetProgramPathFromExt(const Ext: string): string;
 var
   S: string;
 begin
@@ -695,7 +695,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.OnFlickTimer(Sedner: Tobject);
+procedure TLinksLabel.OnFlickTimer(Sedner: Tobject);
 begin
   if csDesigning in ComponentState then
   begin
@@ -706,7 +706,7 @@ begin
     Visible := not Visible;
 end;
 
-procedure TLinkLabel.OnRunTimer(Sender: TObject);
+procedure TLinksLabel.OnRunTimer(Sender: TObject);
 begin
   if not RunTimer.Enabled then
     Exit;
@@ -729,7 +729,7 @@ begin
 end;
 //Set---------------------------------------------------------------------------
 
-function TLinkLabel.SetWinState(State: TWindowState): Cardinal;
+function TLinksLabel.SetWinState(State: TWindowState): Cardinal;
 begin
   Result := 0;
   case State of
@@ -739,7 +739,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
+procedure TLinksLabel.SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
 var
   Size: TSize;
 begin
@@ -766,7 +766,7 @@ begin
   inherited;
 end;
 
-procedure TLinkLabel.SetImageIndex(const Value: integer);
+procedure TLinksLabel.SetImageIndex(const Value: integer);
 begin
   begin
     if FImageIndex <> Value then
@@ -777,7 +777,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetImages(Value: TCustomImageList);
+procedure TLinksLabel.SetImages(Value: TCustomImageList);
 begin
   if Images <> nil then
     Images.UnRegisterChanges(FImageChangeLink);
@@ -790,7 +790,7 @@ begin
   Invalidate;
 end;
 
-procedure TLinkLabel.SetAlignment(Value: TAlignment);
+procedure TLinksLabel.SetAlignment(Value: TAlignment);
 begin
   if FAlignment <> Value then
   begin
@@ -799,7 +799,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetLayout(Value: TTextLayout);
+procedure TLinksLabel.SetLayout(Value: TTextLayout);
 begin
   if FLayout <> Value then
   begin
@@ -808,7 +808,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetAutoSize(Value: Boolean);
+procedure TLinksLabel.SetAutoSize(Value: Boolean);
 begin
   if FAutoSize <> Value then
   begin
@@ -818,7 +818,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetTextStyle(Value: TTextStyle);
+procedure TLinksLabel.SetTextStyle(Value: TTextStyle);
 begin
   if FTextStyle <> Value then
   begin
@@ -827,7 +827,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetLinkColor(Value: TColor);
+procedure TLinksLabel.SetLinkColor(Value: TColor);
 begin
   if FLinkColor <> Value then
   begin
@@ -836,7 +836,7 @@ begin
   end;
 end;
 
-procedure TLinkLabel.SetShift(Value: integer);
+procedure TLinksLabel.SetShift(Value: integer);
 begin
   if FShift <> Value then
   begin

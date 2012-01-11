@@ -1,8 +1,8 @@
 //******************************************************************
 //                                                                 *
-//                       TFavoritesTree                            *                                                      *
+//                       TFavoritesTree                            *
 //                     Freeware Component                          *
-//                     For Delphi 5 - 2009                         *
+//                     For Delphi 5 - DSelphi XE                   *
 //                            by                                   *
 //                       Pete Morris                               *
 //                     and Eran Bodankin                           *
@@ -19,12 +19,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -40,12 +40,12 @@ unit FavoritesTree;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   ShlObj, Messages, Windows, SysUtils, Classes, Forms, ComCtrls, DIRMonitor,
-  iniFiles, EmbeddedWB,
-  ExportFavorites, ImportFavorites, EwbAcc;
+  iniFiles, EmbeddedWB, EwbCore, Controls, Imglist,
+  ExportFavorites, ImportFavorites, EwbAcc, EWBTools;
 
 type
   TNodeType = (ntRoot, ntItem, ntEmptyFolder, ntFolder, ntOrganizeFavorites,
@@ -60,15 +60,39 @@ type
   TNavigateEvent = procedure(Sender: TObject; const Url: string) of object;
   TPopupMenuMode = (pmm_System, pmm_PopupMenu);
 
+
+  TLocalization = class(TPersistent)
+  private
+    FNodeOrganiseFavorites: string;
+    FNodeAddToFavorites: string;
+    FNodeImportFavorites: string;
+    FNodeExportFavorites: string;
+    FNodeTools: string;
+    FNodeFavorites: string;
+    FTextLinks: string;
+    FTextImported: string;
+  published
+    property NodeOrganiseFavorites: string read FNodeOrganiseFavorites write FNodeOrganiseFavorites;
+    property NodeAddToFavorites: string read FNodeAddToFavorites write FNodeAddToFavorites;
+    property NodeImportFavorites: string read FNodeImportFavorites write FNodeImportFavorites;
+    property NodeExportFavorites: string read FNodeExportFavorites write FNodeExportFavorites;
+    property NodeTools: string read FNodeTools write FNodeTools;
+    property NodeFavorites: string read FNodeFavorites write FNodeFavorites;
+    property TextLinks: string read FTextLinks write FTextLinks;
+    property TextImported: string read FTextImported write FTextImported;
+  end;
+
   TCustomFavoritesTree = class(TCustomTreeView)
   private
+    foldericon: Integer;
+    myRootNode, myRootNode2: TTreeNode;
     lFolder: PItemIDList;
     lPath: array[0..MAX_PATH] of char;
     FavIndex: integer;
     FOptions: TFavoriteOptions;
     FPath: string;
-    // FFavoritesMonitor: TDirMonitor;
-    fEmbeddedWB: TEmbeddedWB;
+    ImageList: TImageList;
+    FEmbeddedWB: TCustomEmbeddedWB;
     fExportFavorites: TExportFavorite;
     FImportFavorites: TImportFavorite;
     FOnNavigate: TNavigateEvent;
@@ -76,9 +100,9 @@ type
     FOnNodeMissing: TNodeMissingEvent;
     FOnFavoritesChanged: TNotifyEvent;
     FPopupMenuMode: TPopupMenuMode;
-    //procedure DoFavoritesChanged(Sender: TObject);
+    FLocalization: TLocalization;
     procedure SetOption(const Value: TFavoriteOptions);
-    // function ShellItem(Index: Integer): PItem;
+    procedure CallDoOrganizeFavDlg(const DllName: string);
   protected
     procedure DblClick; override;
     function InternalAdd(const aParent: TTreeNode; const aCaption: string; const
@@ -92,7 +116,7 @@ type
     property OnNodeMissing: TNodeMissingEvent read FOnNodeMissing write
       FOnNodeMissing;
     procedure PopupSystemContextMenu(Node: TTreeNode; Point: TPoint);
-    procedure WMContextMenu(var Message: TMessage); message WM_Contextmenu;
+    procedure WMContextMenu(var Msg: TMessage); message WM_Contextmenu;
   public
     constructor Create(AOwner: TComponent); override;
     procedure GetSelectedIndex(Node: TTreeNode); override;
@@ -108,18 +132,19 @@ type
     procedure RefreshFolder(const aFolder: TTreeNode); dynamic;
     function NodeURL(const aNode: TTreeNode): string;
   published
+
     property PopupMenuMode: TPopupMenuMode read FPopupMenuMode write
       FPopupMenuMode;
-    property EmbeddedWB: TEmbeddedWB read fEmbeddedWB write fEmbeddedWB;
+    property EmbeddedWB: TCustomEmbeddedWB read FEmbeddedWB write FEmbeddedWB;
     property ImportFavorites: TImportFavorite read FImportFavorites write
       FImportFavorites;
     property ExportFavorites: TExportFavorite read fExportFavorites write
-      fExportFavorites;
+      FExportFavorites;
+    property Localization: TLocalization read FLocalization write FLocalization;
   end;
+
   TFavoritesTree = class(TCustomFavoritesTree)
   private
-  protected
-  public
   published
     //new properties
     property Options;
@@ -209,12 +234,13 @@ type
 var
   Folder: IShellFolder;
 
+
 implementation
 uses
 {$IFDEF DELPHI6_UP}
 {$WARN UNIT_PLATFORM OFF}
 {$ENDIF}
-  MenuContext, SHDocVw_EWB, ComObj, ActiveX, FileCtrl, Registry;
+  MenuContext, SHDocVw_EWB, ComObj, ActiveX, FileCtrl, Registry, ShellApi;
 
 { TCustomFavoritesTree }
 
@@ -231,39 +257,52 @@ begin
 end;
 
 constructor TCustomFavoritesTree.Create(AOwner: TComponent);
+var FileInfo: TSHFileInfo;
 begin
   inherited;
+
+  FLocalization := TLocalization.Create;
+  FLocalization.NodeOrganiseFavorites := 'Organize favorites';
+  FLocalization.NodeAddToFavorites := 'Add To favorites';
+  FLocalization.NodeImportFavorites := 'Import favorites';
+  FLocalization.NodeExportFavorites := 'Export favorites';
+  FLocalization.NodeTools := 'Tools';
+  FLocalization.NodeFavorites := 'Favorites';
+  FLocalization.TextLinks := 'Links';
+  FLocalization.TextImported := 'Imported';
+
   SHGetSpecialFolderLocation(0, CSIDL_FAVORITES, lFolder);
   SHGetPathFromIDList(lFolder, lPath);
+  //SHGetSpecialFolderLocation(Application.Handle, CSIDL_FAVORITES, FavoritesPIDL);
+
   FPath := StrPas(lPath);
   if FPath[Length(FPath)] <> '\' then
     FPath := FPath + '\';
-  //FFavoritesMonitor := TDIRMonitor.Create(lPath, True, DoFavoritesChanged);
   FOptions := [foShowRoot, foShowItems, foShowOrganize, foShowAdd, foShowImport,
     foShowExport];
-  ShowRoot := true;
+  ShowRoot := True;
+  ImageList := TImagelist.Create(Self);
+  ImageList.ShareImages := True;
+//  ImageList.DrawingStyle := dsTransparent;
+  ImageList.Handle := SHGetFileInfo(Pchar(lFolder), 0, FileInfo,
+    SizeOf(FileInfo), SHGFI_PIDL or SHGFI_SYSICONINDEX or SHGFI_SMALLICON);
+  Self.Images := ImageList;
+  foldericon := -1;
 end;
 
 procedure TCustomFavoritesTree.Loaded;
 begin
   inherited;
-  ShowRoot := true;
+  ShowRoot := True;
   Refresh;
 end;
 
 destructor TCustomFavoritesTree.Destroy;
 begin
-  //  FFavoritesMonitor.Terminate;
-  { if FFavoritesMonitor <> nil then
-     FFavoritesMonitor.Free; }
+  FLocalization.Free;
+  ImageList.Free;
   inherited;
 end;
-
-{procedure TCustomFavoritesTree.DoFavoritesChanged(Sender: TObject);
-begin
-  if Assigned(OnFavoritesChanged) then
-    OnFavoritesChanged(Self);
-end;}
 
 function TCustomFavoritesTree.NodeURL(const aNode: TTreeNode): string;
 const
@@ -272,7 +311,7 @@ const
 var
   FileName: string;
   FName: array[0..MAX_PATH] of WideChar;
-  Pchr: Pchar;
+  PURL: Pchar;
   IUrl: IUniformResourceLocator;
   PersistFile: IPersistFile;
 begin
@@ -281,8 +320,8 @@ begin
   PersistFile := IUrl as IPersistFile;
   StringToWideChar(FileName, FName, MAX_PATH);
   PersistFile.Load(FName, STGM_READ);
-  IUrl.GetURL(@Pchr);
-  Result := Pchr;
+  IUrl.GetURL(@PURL);
+  Result := PURL;
 end;
 
 function TCustomFavoritesTree.GetFileName(const aNode: TTreeNode): string;
@@ -305,17 +344,29 @@ var
   CurrentPath: string;
   SR: TSearchRec;
   Found: Integer;
+  newnode: TTreeNode;
+  sfi: TShFileInfo;
+  i: Integer;
 begin
   CurrentPath := GetFileName(aFolder);
   Found := FindFirst(CurrentPath + '*.*', faDirectory, SR);
+
   while Found = 0 do
   begin
     if (SR.Attr and faDirectory <> 0) and (SR.Name <> '.') and (SR.Name <>
       '..') then
-      InternalAdd(aFolder, SR.Name, ntEmptyFolder);
+    begin
+      newnode := InternalAdd(aFolder, SR.Name, ntEmptyFolder);
+      ShGetFileInfo('*.*', FILE_ATTRIBUTE_DIRECTORY, sfi, sizeOf(sfi),
+        SHGFI_SYSICONINDEX or SHGFI_USEFILEATTRIBUTES or SHGFI_SMALLICON);
+      if foldericon < 0 then foldericon := sfi.iIcon;
+      newnode.ImageIndex := sfi.iIcon;
+      DestroyIcon(sfi.iIcon);
+    end;
     Found := FindNext(SR);
   end;
   FindClose(SR);
+
   if foShowItems in Options then
   begin
     Found := FindFirst(CurrentPath + '*.Url', faAnyFile, SR);
@@ -323,16 +374,42 @@ begin
     begin
       if (SR.Attr and faDirectory = 0) then
       begin
-        InternalAdd(aFolder, copy(SR.Name, 1, Length(SR.Name) - 4),
+        newnode := InternalAdd(aFolder, Copy(SR.Name, 1, Length(SR.Name) - 4),
           ntItem);
+        {$IFDEF UNICODE}
+        ShGetFileInfo(LPWSTR((CurrentPath + SR.Name)), FILE_ATTRIBUTE_NORMAL, sfi, SizeOf(sfi),
+          SHGFI_SYSICONINDEX or
+          SHGFI_USEFILEATTRIBUTES or
+          SHGFI_SMALLICON);
+        {$ELSE}
+        ShGetFileInfo(LPCSTR((CurrentPath + SR.Name)), FILE_ATTRIBUTE_NORMAL, sfi, SizeOf(sfi),
+          SHGFI_SYSICONINDEX or
+          SHGFI_USEFILEATTRIBUTES or
+          SHGFI_SMALLICON);
+            {$ENDIF}
+        if sfi.iIcon > 3 then
+        begin
+          newnode.ImageIndex := sfi.iIcon;
+        end
+        else
+        begin
+          ShGetFileInfo('*.htm', FILE_ATTRIBUTE_NORMAL, sfi, SizeOf(sfi),
+            SHGFI_SYSICONINDEX or
+            SHGFI_USEFILEATTRIBUTES or
+            SHGFI_SMALLICON);
+          newnode.ImageIndex := sfi.iIcon;
+        end;
+        DestroyIcon(sfi.iIcon);
       end;
       Found := FindNext(SR);
     end;
     FindClose(SR);
   end;
+
   if aFolder <> nil then
     if TNodeType(aFolder.Data) = ntEmptyFolder then
       aFolder.Data := Pointer(ntFolder);
+
   if aFolder <> nil then
     if TNodeType(aFolder.Data) = ntFolder then
     begin
@@ -340,6 +417,12 @@ begin
       aFolder.Data := Pointer(ntFolder);
       aFolder.Expand(True);
     end;
+
+  for i := 0 to myRootNode.Count do
+    Self.Items[i].ImageIndex := foldericon;
+
+  myRootNode.ImageIndex := foldericon;
+  myRootNode2.ImageIndex := foldericon;
 end;
 
 function TCustomFavoritesTree.InternalAdd(const aParent: TTreeNode;
@@ -355,36 +438,36 @@ procedure TCustomFavoritesTree.Refresh;
 var
   RootNode, RootNode2: TTreeNode;
 begin
+  Items.BeginUpdate;
   try
-    Items.BeginUpdate;
     while Items.Count > 0 do
       Items[0].Delete;
 
     if foShowRoot in Options then
-    begin
-      RootNode := InternalAdd(nil, 'Tools', ntTools);
-    end
+      RootNode := InternalAdd(nil, FLocalization.NodeTools, ntTools)
     else
       RootNode := nil;
     if foShowOrganize in Options then
-      InternalAdd(RootNode, 'Organize favorites', ntOrganizeFavorites);
+      InternalAdd(RootNode, FLocalization.NodeOrganiseFavorites, ntOrganizeFavorites);
     if (foShowAdd in Options) then
-      InternalAdd(RootNode, 'Add To favorites', ntAddToFavorites);
+      InternalAdd(RootNode, FLocalization.NodeAddToFavorites, ntAddToFavorites);
     if (foShowImport in Options) then
-      InternalAdd(RootNode, 'Import favorites', ntImportFavorites);
+      InternalAdd(RootNode, FLocalization.NodeImportFavorites, ntImportFavorites);
     if (foShowExport in Options) then
-      InternalAdd(RootNode, 'Export favorites', ntExportFavorites);
+      InternalAdd(RootNode, FLocalization.NodeExportFavorites, ntExportFavorites);
     if (RootNode <> nil) then
       RootNode.Expanded := True;
-    if (pos('Links', RootNode.Text) > 0) or (pos('Imported', RootNode.Text) > 0) then
-    begin
+    if (Pos(FLocalization.TextLinks, RootNode.Text) > 0) or
+      (Pos(FLocalization.TextImported, RootNode.Text) > 0) then
       RootNode.HasChildren := True;
-    end;
-    RootNode2 := InternalAdd(nil, 'Favorites', ntRoot);
-    FavIndex := RootNode.Count + 1;
-    RefreshFolder(RootNode2);
-    RootNode2.Expand(true);
 
+    RootNode2 := InternalAdd(nil, FLocalization.NodeFavorites, ntRoot);
+    FavIndex := RootNode.Count + 1;
+
+    myRootNode := RootNode;
+    myRootNode2 := RootNode2;
+    RefreshFolder(RootNode2);
+    RootNode2.Expand(True);
   finally
     Items.EndUpdate;
   end;
@@ -398,29 +481,44 @@ end;
 procedure TCustomFavoritesTree.ExportTheFavorites;
 begin
   if Assigned(ExportFavorites) then
-    fExportFavorites.ExportFavorites;
+    FExportFavorites.ExportFavorites
+  else
+    Application.MessageBox('Please assign a TExportFavorites component to use this feature' + #13#10 +
+      'or set Options.foshowExport to False.', 'Hint', MB_OK);
 end;
 
 procedure TCustomFavoritesTree.ImportTheFavorites;
 begin
   if Assigned(ImportFavorites) then
+  begin
     FImportFavorites.ImportFavorites;
-  Refresh;
+    Refresh;
+  end else
+    Application.MessageBox('Please assign a TImportFavorites component to use this feature' + #13#10 +
+      'or set Options.foshowImport to False.', 'Hint',MB_OK);
+end;
+
+procedure TCustomFavoritesTree.CallDoOrganizeFavDlg(const DllName: string);
+var
+  H: HWND;
+  OrganizeFavDlg: procedure(Handle: THandle; Path: PAnsiChar); stdcall;
+begin
+  H := LoadLibrary(PChar(DllName));
+  if H <> 0 then
+  begin
+    OrganizeFavDlg := GetProcAddress(H, 'DoOrganizeFavDlg');
+    if Assigned(OrganizeFavDlg) then
+      OrganizeFavDlg(Application.Handle, PAnsiChar(AnsiString(FPath)));
+  end;
+  FreeLibrary(H);
 end;
 
 procedure TCustomFavoritesTree.OrganizeFavorites;
-var
-  H: Hwnd;
-  p: procedure(Handle: THandle; Path: PAnsiChar); stdcall;
 begin
-  H := LoadLibrary('shdocvw.dll');
-  if H <> 0 then
-  begin
-    p := GetProcAddress(H, 'DoOrganizeFavDlg');
-    if Assigned(p) then
-      p(Application.Handle, PAnsiChar(AnsiString(FPath)));
-  end;
-  FreeLibrary(H);
+  if GetIEVersionMajor > 6 then
+    CallDoOrganizeFavDlg('ieframe.dll')
+  else
+    CallDoOrganizeFavDlg('shdocvw.dll');
   Refresh;
 end;
 
@@ -443,8 +541,8 @@ begin
   if Assigned(EmbeddedWB) then
   begin
     AddToFav(EmbeddedWB.LocationURL, EmbeddedWB.LocationName);
+    Refresh;
   end;
-  Refresh;
 end;
 
 function URLFromShortcut(const dotURL: string): string;
@@ -463,18 +561,16 @@ end;
 
 procedure TCustomFavoritesTree.DblClick;
 var
-  URLPath: widestring;
-  //  ID      : PItemIDList;
-  X: Olevariant;
+  URLPath: WideString;
+  X: OleVariant;
   Url: string;
 begin
   inherited;
-  if Selected = nil then
-    Exit;
+  if Selected = nil then Exit;
 
   case TNodeType(Selected.Data) of
     ntFolder, ntEmptyFolder:
-      if not DirectoryExists(GetFileName(Selected)) then
+      if not {$IFDEF DELPHI6_UP}SysUtils.{$ENDIF}DirectoryExists(GetFileName(Selected)) then
       begin
         if Assigned(OnNodeMissing) then
           OnNodeMissing(Self, Selected, TNodeType(Selected.Data));
@@ -517,11 +613,6 @@ begin
   end;
 end;
 
-{function TCustomFavoritesTree.ShellItem(Index: Integer): aParent;
-begin
-   Result := PItem(List[Index]);
-end; }
-
 procedure TCustomFavoritesTree.PopupSystemContextMenu(Node: TTreeNode; Point:
   TPoint);
 var
@@ -529,28 +620,29 @@ var
   Pidl: PItemIdList;
   Par: TTreeNode;
 begin
-
-  if not Assigned(Node) then
-    Exit;
-  Par := Node.Parent;
-  if not Assigned(Par) then
-    Exit;
-  Pidl := Node.Data;
-  try
-    MenuContext.DisplayContextMenu(ISF, Pidl, 0, Application.Handle, Point, 1);
-  except
-    GetLastError;
+  if Assigned(Node) then
+  begin
+    Par := Node.Parent;
+    if Assigned(Par) then
+    begin
+      Pidl := Node.Data;
+      try
+        MenuContext.DisplayContextMenu(ISF, Pidl, 0, Application.Handle, Point, 1);
+      except
+        GetLastError;
+      end;
+    end;
   end;
 end;
 
-procedure TCustomFavoritesTree.WMContextMenu(var Message: TMessage);
+procedure TCustomFavoritesTree.WMContextMenu(var Msg: TMessage);
 var
   Point: TPoint;
   R: TRect;
   NewSel, SelItem: TTreeNode;
 begin
   NewSel := nil;
-  if Message.lparam = -1 then
+  if Msg.lparam = -1 then
   begin
     SelItem := TTreeNode(Selected);
     if not Assigned(SelItem) then
@@ -561,8 +653,8 @@ begin
   end
   else
   begin
-    Point.X := LOWORD(Message.lParam);
-    Point.Y := HIWORD(Message.lParam);
+    Point.X := LOWORD(Msg.lParam);
+    Point.Y := HIWORD(Msg.lParam);
     Point := ScreenToClient(Point);
     SelItem := Selected //TListItem(GetPosition(P.X,P.Y));
   end;
@@ -579,9 +671,8 @@ begin
     end;
   end
   else
-  begin
     PopupSystemContextMenu(SelItem, Point);
-  end;
+
   if Assigned(NewSel) then
     Selected := NewSel;
 end;

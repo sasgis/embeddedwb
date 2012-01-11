@@ -1,11 +1,11 @@
 //***********************************************************
 //                       TFileExtAssociate                  *
 //                                                          *
-//               For Delphi 5,6, 7 , 2005, 2006             *
+//                     For Delphi 5 to XE                   *
 //                     Freeware Component                   *
 //                            by                            *
 //                     Eran Bodankin (bsalsa)               *
-//                     bsalsa@gmail.com                    *
+//                     bsalsa@gmail.com                     *
 //                                                          *
 //           Based on idea by:  Zarko Gajic                 *
 //                                                          *
@@ -20,12 +20,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -41,7 +41,7 @@ unit FileExtAssociate;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   Dialogs, Windows, Classes, Graphics, Forms;
@@ -74,7 +74,7 @@ type
     FOnShortcut: TOnShortcutEvent;
   public
   published
-    property CreateShortcuts: boolean read FCreateShortcuts write FCreateShortcuts default True;
+    property CreateShortcuts: Boolean read FCreateShortcuts write FCreateShortcuts default True;
     property Options: TShortcutItem read FOptions write FOptions default [OpenWith];
     property MenuSubDir: WideString read FMenuSubDir write FMenuSubDir;
     property OnShortcutEvent: TOnShortcutEvent read FOnShortcut write FOnShortcut;
@@ -134,9 +134,9 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function Exceute: Boolean; overload;
-    function Exceute(Extension, AppTitle, ExeName: string; Icon: TIcon): Boolean; overload;
-    function Exceute(Extensions: TStrings; AppTitle, ExeName: string; Icon: TIcon): Boolean; overload;
+    function Execute: Boolean; overload;
+    function Execute(Extension, AppTitle, ExeName: string; Icon: TIcon): Boolean; overload;
+    function Execute(Extensions: TStrings; AppTitle, ExeName: string; Icon: TIcon): Boolean; overload;
     function Remove: Boolean; overload;
     function Remove(Ext: string; ExeName: string): Boolean; overload;
     function GetExeByExtension(sExt: string): string;
@@ -271,7 +271,7 @@ begin
   Result := sExt;
 end;
 
-function TFileExtAssociate.Exceute: Boolean;
+function TFileExtAssociate.Execute: Boolean;
 var
   i: integer;
   stExt: string;
@@ -295,7 +295,7 @@ begin
   BusyChange;
 end;
 
-function TFileExtAssociate.Exceute(Extension, AppTitle, ExeName: string; Icon:
+function TFileExtAssociate.Execute(Extension, AppTitle, ExeName: string; Icon:
   TIcon): Boolean;
 begin
   FBusy := True;
@@ -308,7 +308,7 @@ begin
   BusyChange;
 end;
 
-function TFileExtAssociate.Exceute(Extensions: TStrings; AppTitle, ExeName: string;
+function TFileExtAssociate.Execute(Extensions: TStrings; AppTitle, ExeName: string;
   Icon: TIcon): Boolean;
 var
   i: integer;
@@ -837,10 +837,11 @@ var
   SearchRec: TSearchRec;
   intFileAge: Integer;
 begin
-  if Trim(Path) = '' then
-    Exit;
+  if Trim(Path) <> '' then
+  begin
   ShGetFileInfo(PChar(Path), 0, SHFileInfo, SizeOf(TSHFileInfo),
     SHGFI_TYPENAME or SHGFI_DISPLAYNAME or SHGFI_SYSICONINDEX or SHGFI_ICON);
+  ZeroMemory(@Info, 0);
   with Info do
   begin
     Icon := SHFileInfo.hIcon;
@@ -852,12 +853,14 @@ begin
     if intFileAge > -1 then
       DateTime := FileDateToDateTime(intFileAge);
 {$IFDEF DELPHI6_UP}{$WARN SYMBOL_DEPRECATED ON}{$ENDIF}
-    FindFirst(Path, 0, SearchRec);
-    Size := SearchRec.Size;
-    SizeAsString := FormatSize(Size);
-    FindClose(searchRec);
+    if FindFirst(Path, 0, SearchRec) = 0 then
+    begin
+      Size := SearchRec.Size;
+      SizeAsString := FormatSize(Size);
+      FindClose(searchRec);
+    end;
   end;
-
+ end;
 end;
 
 function TFileExtAssociate.GetExeByExtension(sExt: string): string;

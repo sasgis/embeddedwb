@@ -1,7 +1,7 @@
 //*************************************************************
 //                     IEDownload strings                     *
 //                                                            *
-//                     For Delphi 5 to 2009                   *
+//                     For Delphi 5 to XE                     *
 //                         Freeware unit                      *
 //                            by                              *
 //                     Eran Bodankin (bsalsa)                 *
@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 3 conditions:
@@ -52,14 +52,14 @@ resourcestring
   Err_BindToSt = 'Error while MonikerBindToStorage ';
   Err_CreateMoniker = 'Error while CreateMoniker ';
   Err_Creating_Dir = ' while creating download folder';
-  Err_Folder = 'Error while openning folder';
+  Err_Folder = 'Error while opening folder';
   Err_Proc_DL = 'ProcessEvents fails to wait until complete downloading';
   Err_Proc_Ev = 'ProcessEvents fails to wait until complete.';
   Err_RegBSCB = 'Error while RegisterBindStatusCallback: ';
   Err_Revoke = 'Error while RevokeBindStatusCallback. ';
   Err_ToFile = 'Error while UrlDownloadToFile';
   Err_ToCacheFile = 'Error while UrlDownloadToCacheFile';
-  Err_TimeOut = 'Error: Time Out.';
+  Err_TimeOut = 'Error: Timeout.';
   Err_URLMEx = 'Error while CreateURLMonikerEx: ';
   Frmt_Time = 'mm:ss.zzz';
   kb_sec = 'kb/sec';
@@ -71,20 +71,20 @@ resourcestring
   Err_Doc_AsPointContainer = 'Error while getting IConnectionPointContainer: ';
   Doc_AsPointContainer = 'Getting IConnectionPointContainer: ';
   Err_Doc_AsAmbientPropertyChange = 'Error while getting AmbientPropertyChang: ';
-  Doc_AsAmbientPropertyChange = 'Getting AmbientPropertyChange: ';
-  Err_Doc_AsSetClientSite = 'Error while getting SetClientSite: ';
-  Doc_AsSetClientSite = 'Getting SetClientSite: ';
+  Doc_AsAmbientPropertyChange = 'Getting Ambient Property Change: ';
+  Err_Doc_AsSetClientSite = 'Error while getting Set Client Site: ';
+  Doc_AsSetClientSite = 'Getting Set Client Site: ';
   Err_CoCreateInstance = 'Error while CoCreateInstance: ';
-  Succ_CoCreateInstance = 'CoCreateInstance: ';
+  Succ_CoCreateInstance = 'Getting CoCreateInstance: ';
   Err_IpersistMoniker_Load = 'Error while loading as IpersistMoniker: ';
   Succ_IpersistMoniker_Load = 'Loading as IpersistMoniker ';
   Err_Load_Str = 'Error while loading from string: ';
   Succ_Load_Str = 'Loading from string: ';
   Err_Load_Mon = 'Error while loading from moniker: ';
-  Succ_Load_Mon = 'loading from moniker: ';
-  P_Wait = 'Please wait.. ';
+  Succ_Load_Mon = 'Loading from moniker: ';
+  P_Wait = 'Please wait... ';
   General_Error = 'An error occured while ';
-  Doc_Error = 'Bad document or bad Address.';
+  Doc_Error = 'Bad document or bad address.';
 
 implementation
 

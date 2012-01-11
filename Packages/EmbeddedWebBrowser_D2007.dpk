@@ -1,7 +1,7 @@
 {*******************************************************}
 {          Embedded Web Browser package Delphi 2007     }
 {                                                       }
-{            For Delphi 5, 6, 7, 2005, 2006, 2007, 2009 }
+{            For Delphi 5 - XE 				}
 {                Freeware Components                    }
 {            Please note our uses terms                 }
 {                                                       }
@@ -96,7 +96,7 @@ contains
   EwbReg in '..\Source\EwbReg.pas',
   Browse4Folder in '..\Source\Browse4Folder.pas',
   FileExtAssociate in '..\Source\FileExtAssociate.pas',
-  LinkLabel in '..\Source\LinkLabel.pas',
+  LinksLabel in '..\Source\LinksLabel.pas',
   IeConst in '..\Source\IeConst.pas',
   EwbAcc in '..\Source\EwbAcc.pas',
   EwbTools in '..\Source\EwbTools.pas',

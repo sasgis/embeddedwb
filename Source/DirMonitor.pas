@@ -2,7 +2,7 @@ unit DirMonitor;
 //**************************************************************************
 //                           DirMonitor unit                               *
 //                  by Peter Morris (Cubud)                                *
-//              For Delphi 5, 6, 7 , 2005, 2006                            *
+//                     For Delphi 5 to XE                                  * 
 //                         Freeware Unit                                   *
 //                                                                         *
 //    Contributor:                                                         *
@@ -15,7 +15,7 @@ unit DirMonitor;
 //   bsalsa                                                                *
 //                                                                         *
 //     Documentation and updated versions:                                 *
-//               http://www.bsalsa.com                                     *                  *
+//               http://www.bsalsa.com                                     * 
 //                                                                         *
 //     Ps, to get your own FREE events page, go to                         *
 //     www.stuckindoors.com                                                *
@@ -27,12 +27,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -45,12 +45,13 @@ You may use, change or modify the component under 4 conditions:
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
-uses
 {$IFDEF DELPHI6_UP}
 {$WARN UNIT_PLATFORM OFF}
 {$ENDIF}
+
+uses
   Windows, SysUtils, Classes, FileCtrl;
 
 type
@@ -74,7 +75,7 @@ constructor TDirMonitor.Create(ADirectoryPath: string;
   ASubDirs: Boolean; ACallback: TNotifyEvent);
 begin
   inherited Create(True);
-  if not DirectoryExists(ADirectoryPath) then
+  if not {$IFDEF DELPHI6_UP}SysUtils.{$ENDIF}DirectoryExists(ADirectoryPath) then
     raise Exception.Create('Path does not exist');
   if not Assigned(ACallback) then
     raise Exception.Create('No callback has been set');
@@ -82,7 +83,11 @@ begin
   FDirectoryPath := ADirectoryPath;
   FCallback := ACallback;
   FreeOnTerminate := True;
+  {$IFDEF DELPHI2010_UP}
+  Start;
+  {$ELSE}
   Resume;
+  {$ENDIF}
 end;
 
 procedure TDirMonitor.DoCallback;

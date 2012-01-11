@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -37,7 +37,7 @@ unit EwbReg;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   Classes, {$IFDEF DELPHI6_UP}DesignEditors, DesignIntf, {$ELSE}DsgnIntf, {$ENDIF}
@@ -46,7 +46,7 @@ uses
   ImportFavorites, LibXmlComps, LibXmlParser, LinksBar, RichEditBrowser,
   SecurityManager, SendMail_For_Ewb, UrlHistory, Edithost, EditDesigner,
   IEAddress, IEDownload, IEMultiDownload, EwbCore, EmbeddedWB, EwbControlComponent, IECache, Browse4Folder,
-  FileExtAssociate, LinkLabel, UI_Less,
+  FileExtAssociate, LinksLabel, UI_Less,
 {$IFDEF DELPHI6_UP}EwbEventsComp, EwbBehaviorsComp, {$ENDIF}EwbActns;
 
 procedure Register;
@@ -89,7 +89,7 @@ begin
       TIEParser,
       TIETravelLog,
       TImportFavorite,
-      TLinkLabel,
+      TLinksLabel,
       TLinksBar,
       TRichEditWB,
       TSecurityManager,
@@ -129,7 +129,7 @@ begin
   RegisterComponentEditor(TIEParser, TEwbCompEditor);
   RegisterComponentEditor(TIETravelLog, TEwbCompEditor);
   RegisterComponentEditor(TImportFavorite, TEwbCompEditor);
-  RegisterComponentEditor(TLinkLabel, TEwbCompEditor);
+  RegisterComponentEditor(TLinksLabel, TEwbCompEditor);
   RegisterComponentEditor(TLinksBar, TEwbCompEditor);
   RegisterComponentEditor(TRichEditWB, TEwbCompEditor);
   RegisterComponentEditor(TSecurityManager, TEwbCompEditor);

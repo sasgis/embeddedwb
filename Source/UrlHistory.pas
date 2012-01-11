@@ -1,14 +1,14 @@
 //**************************************************************
 //                                                             *
 //                      UrlHistory                             *                                                      *
-//                 For Delphi 5, 6, 7, 2005, 2006              *
+//                     For Delphi 5 to XE                      *
 //                     Freeware Component                      *
 //                            by                               *
 //                     Per Lindsø Larsen                       *
 //                   per.lindsoe@larsen.dk                     *
 //                                                             *
 //  Contributions:                                             *
-//  Eran Bodankin (bsalsa) bsalsa@gmail.com                   *
+//  Eran Bodankin (bsalsa) bsalsa@gmail.com                    *
 //                                                             *
 //  Updated versions:                                          *
 //               http://www.bsalsa.com                         *
@@ -21,12 +21,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -42,10 +42,10 @@ unit UrlHistory;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
-  Windows, SysUtils, Classes, Activex, Comobj, EwbAcc;
+  Windows, SysUtils, Classes, ActiveX, ComObj, EwbAcc;
 
 
 type
@@ -89,10 +89,10 @@ type
     destructor Destroy; override;
     function Enumerate: Integer;
     function DeleteEntries: Integer;
-    function AddUrl(Url: PWideChar; Title: PWideChar): HResult;
-    function DeleteUrl(Url: PWideChar): HResult;
-    function QueryUrl(Url: PWideChar; var Entry: TEntry): HResult;
-    function ClearHistory: HResult;
+    function AddUrl(Url: PWideChar; Title: PWideChar): HRESULT;
+    function DeleteUrl(Url: PWideChar): HRESULT;
+    function QueryUrl(Url: PWideChar; var Entry: TEntry): HRESULT;
+    function ClearHistory: HRESULT;
 
   published
     { Published declarations }
@@ -112,12 +112,11 @@ var
 function TitleSortFunc(Item1, Item2: Pointer): Integer;
 begin
   if ((PEntry(Item1).Title < PEntry(Item2).Title) and Ascending)
-    or ((PEntry(Item1).Title > PEntry(Item2).Title) and not Ascending)
-    then
-    result := -1
+    or ((PEntry(Item1).Title > PEntry(Item2).Title) and not Ascending) then
+    Result := -1
   else
     if PEntry(Item1).Title = PEntry(Item2).Title then
-      result := 0
+      Result := 0
     else
       Result := 1;
 end;
@@ -125,12 +124,11 @@ end;
 function UrlSortFunc(Item1, Item2: Pointer): Integer;
 begin
   if ((PEntry(Item1).Url < PEntry(Item2).Url) and Ascending)
-    or ((PEntry(Item1).Url > PEntry(Item2).Url) and not Ascending)
-    then
-    result := -1
+    or ((PEntry(Item1).Url > PEntry(Item2).Url) and not Ascending) then
+    Result := -1
   else
     if PEntry(Item1).Url = PEntry(Item2).Url then
-      result := 0
+      Result := 0
     else
       Result := 1;
 end;
@@ -140,10 +138,10 @@ begin
   if ((PEntry(Item1).LastVisited < PEntry(Item2).LastVisited) and Ascending)
     or ((PEntry(Item1).LastVisited > PEntry(Item2).LastVisited) and not Ascending)
     then
-    result := -1
+    Result := -1
   else
     if PEntry(Item1).LastVisited = PEntry(Item2).LastVisited then
-      result := 0
+      Result := 0
     else
       Result := 1;
 end;
@@ -152,10 +150,10 @@ function LastUpdatedSortFunc(Item1, Item2: Pointer): Integer;
 begin
   if ((PEntry(Item1).LastUpdated < PEntry(Item2).LastUpdated) and Ascending)
     or ((PEntry(Item1).LastUpdated > PEntry(Item2).LastUpdated) and not Ascending) then
-    result := -1
+    Result := -1
   else
     if PEntry(Item1).LastUpdated = PEntry(Item2).LastUpdated then
-      result := 0
+      Result := 0
     else
       Result := 1;
 end;
@@ -163,12 +161,11 @@ end;
 function ExpiresSortFunc(Item1, Item2: Pointer): Integer;
 begin
   if ((PEntry(Item1).Expires < PEntry(Item2).Expires) and Ascending)
-    or ((PEntry(Item1).Expires > PEntry(Item2).Expires) and not Ascending)
-    then
-    result := -1
+    or ((PEntry(Item1).Expires > PEntry(Item2).Expires) and not Ascending) then
+    Result := -1
   else
     if PEntry(Item1).Expires = PEntry(Item2).Expires then
-      result := 0
+      Result := 0
     else
       Result := 1;
 end;
@@ -180,19 +177,19 @@ var
 begin
   FileTimeToLocalFiletime(Ft, lft);
   if FileTimeToDosDateTime(lft, Longrec(l).Hi, Longrec(l).Lo) then
-    result := FiledateToDatetime(l)
+    Result := FileDateToDatetime(l)
   else
-    result := 0;
+    Result := 0;
 end;
 
 { TUrlHistory }
 
-function TUrlHistory.AddUrl(Url, Title: PWideChar): HResult;
+function TUrlHistory.AddUrl(Url, Title: PWideChar): HRESULT;
 begin
   Result := Stg.AddUrl(Url, Title, 0);
 end;
 
-function TUrlHistory.ClearHistory: HResult;
+function TUrlHistory.ClearHistory: HRESULT;
 begin
   Result := Stg.ClearHistory;
 end;
@@ -202,7 +199,7 @@ begin
   inherited;
 end;
 
-function TUrlHistory.DeleteUrl(Url: PWideChar): HResult;
+function TUrlHistory.DeleteUrl(Url: PWideChar): HRESULT;
 begin
   Result := stg.DeleteUrl(Url, 0);
 end;
@@ -213,9 +210,9 @@ var
 begin
   if Items <> nil then
   begin
-    for I := 0 to Items.Count - 1 do
+    for I := 0 to Pred(Items.Count) do
       Dispose(PEntry(Items[i]));
-    items.Clear;
+    Items.Clear;
   end;
 end;
 
@@ -228,10 +225,10 @@ var
 begin
   ClearList;
   Stg.EnumUrls(Enum);
-  while enum.next(1, StatUrl, @Fetched) = S_OK do
+  while Enum.Next(1, StatUrl, @Fetched) = S_OK do
   begin
-    Url := PWidechar(Pointer(Staturl.pwcsUrl));
-    Title := PWidechar(Pointer(Staturl.pwcsTitle));
+    Url := PWideChar(Pointer(Staturl.pwcsUrl));
+    Title := PWideChar(Pointer(Staturl.pwcsTitle));
     if FSearch <> '' then
       if ((FSearchField = seUrl) and (Pos(FSearch, Url) = 0)) or
         ((FSearchField = seTitle) and (Pos(FSearch, Title) = 0)) or
@@ -251,11 +248,11 @@ begin
   end;
   Ascending := BOOL(FSortDirection = sdAscending);
   case FSortField of
-    sfTitle: items.Sort(TitleSortFunc);
-    sfUrl: items.Sort(UrlSortFunc);
-    sfLastVisited: items.Sort(LastVisitedSortFunc);
-    sfLastUpdated: items.Sort(LastUpdatedSortFunc);
-    sfExpires: items.Sort(ExpiresSortFunc);
+    sfTitle: Items.Sort(TitleSortFunc);
+    sfUrl: Items.Sort(UrlSortFunc);
+    sfLastVisited: Items.Sort(LastVisitedSortFunc);
+    sfLastUpdated: Items.Sort(LastUpdatedSortFunc);
+    sfExpires: Items.Sort(ExpiresSortFunc);
   end;
   Result := Items.Count;
 end;
@@ -296,37 +293,38 @@ var
 begin
   Result := 0;
   Stg.EnumUrls(Enum);
-  while enum.next(1, StatUrl, @Fetched) = S_OK do
+  while enum.Next(1, StatUrl, @Fetched) = S_OK do
   begin
     FDelete := False;
     if Assigned(FOnDelete) then
-      FOnDelete(PWidechar(Pointer(Staturl.pwcsUrl)),
-        PWidechar(Pointer(Staturl.pwcsTitle)),
+      FOnDelete(PWideChar(Pointer(Staturl.pwcsUrl)),
+        PWideChar(Pointer(Staturl.pwcsTitle)),
         FileTimeToDt(Staturl.ftLastVisited),
         FileTimeToDt(Staturl.ftLastUpdated),
         FileTimeToDt(Staturl.ftExpires),
         FDelete);
     if FDelete then
     begin
-      Stg.DeleteUrl(PWidechar(Pointer(Staturl.pwcsUrl)), 0);
+      Stg.DeleteUrl(PWideChar(Pointer(Staturl.pwcsUrl)), 0);
       Inc(Result);
     end;
   end;
 end;
 
-function TUrlHistory.QueryUrl(Url: PWideChar; var Entry: TEntry): HResult;
+function TUrlHistory.QueryUrl(Url: PWideChar; var Entry: TEntry): HRESULT;
 var
-  Staturl: TStaturl;
+  StatUrl: TSTATURL;
 begin
-  Result := Stg.QueryUrl(Url, 0, Staturl);
+  Result := Stg.QueryUrl(Url, 0, StatUrl);
   if Result = S_OK then
   begin
-    Entry.Url := PWidechar(Pointer(Staturl.pwcsUrl));
-    Entry.Title := PWidechar(Pointer(Staturl.pwcsTitle));
-    Entry.Lastvisited := FileTimeToDt(Staturl.ftLastVisited);
+    Entry.Url := PWideChar(Pointer(Staturl.pwcsUrl));
+    Entry.Title := PWideChar(Pointer(Staturl.pwcsTitle));
+    Entry.LastVisited := FileTimeToDt(Staturl.ftLastVisited);
     Entry.LastUpdated := FileTimeToDt(Staturl.ftLastUpdated);
     Entry.Expires := FileTimeToDt(Staturl.ftExpires);
   end;
 end;
 
 end.
+

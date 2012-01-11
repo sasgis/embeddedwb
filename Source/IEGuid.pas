@@ -22,12 +22,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DocUMENTATION. [YOUR Name] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DocUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SystemS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SystemS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SystemS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 3 conditions:
@@ -45,7 +45,7 @@ unit IEGuid;
 interface
 
 uses
-  Mshtml_Ewb, clipbrd, Comobj, Activex, Windows, Messages, SysUtils, Classes, Controls, Forms, Dialogs;
+  Mshtml_Ewb, Clipbrd, Comobj, Activex, Windows, Messages, SysUtils, Classes, Controls, Forms, Dialogs;
 
 type
 
@@ -57,14 +57,14 @@ type
     Guids: TStringlist;
     function NameFromGuid(Guid: TGUID): string;
     function NameFromGuidStr(GuidStr: string): string;
-    function CopyToClipboard(GuidName: string): HRESULT;
-    function GetInterfaces(Unk: IUnknown; const S: TStrings): HRESULT;
+    function CopyToClipboard(GuidName: string): HResult;
+    function GetInterfaces(Unk: IUnknown; const S: TStrings): HResult;
     function GetServices(Unk: IUnknown; rsid: string; const S: TStrings): HResult;
-    function GetConnectionPoints(Unk: IUnknown; const S: TStrings; ShowIDispatch: Boolean): HRESULT;
+    function GetConnectionPoints(Unk: IUnknown; const S: TStrings; ShowIDispatch: Boolean): HResult;
     procedure GetPropertyList(const Obj: IDispatch; const S: TStrings);
     function GetDispatchFromName(const Disp: IDispatch; const PropertyName: WideString): OleVariant;
     function GetInterfacesEx(Unk: IUnknown;
-      const S: TStrings; ShowIUnknown, ShowIDispatch, ShowIDispatchEx, ShowDispinterfaces: Boolean): HRESULT;
+      const S: TStrings; ShowIUnknown, ShowIDispatch, ShowIDispatchEx, ShowDispinterfaces: Boolean): HResult;
     destructor Destroy; override;
     constructor Create(const fname: string);
   end;
@@ -84,20 +84,23 @@ var
   DispParams: TDispParams;
   Status: HResult;
 begin
-  if disp = nil then
-    exit;
-  PName := PWideChar(PropertyName);
-  if PName = 'parentDocument' then
-    exit;
-  if PropertyName = '' then
-    Result := DISPID_UNKNOWN
-  else
-    Disp.GetIDsOfNames(GUID_NULL, @PName, 1, GetThreadLocale, @DispID);
-  FillChar(DispParams, SizeOf(DispParams), 0);
-  Status := Disp.Invoke(DispID, GUID_NULL, 0, DISPATCH_PROPERTYGET, DispParams,
-    @Result, @ExcepInfo, nil);
-  if Status <> S_OK then
-    DispatchInvokeError(Status, ExcepInfo);
+  Result := disp <> nil;
+  if Result then
+  begin
+    PName := PWideChar(PropertyName);
+    if PName <> 'parentDocument' then
+    begin
+      if PropertyName = '' then
+        Result := DISPID_UNKNOWN
+      else
+        Disp.GetIDsOfNames(GUID_NULL, @PName, 1, GetThreadLocale, @DispID);
+      FillChar(DispParams, SizeOf(DispParams), 0);
+      Status := Disp.Invoke(DispID, GUID_NULL, 0, DISPATCH_PROPERTYGET, DispParams,
+        @Result, @ExcepInfo, nil);
+      if Status <> S_OK then
+        DispatchInvokeError(Status, ExcepInfo);
+    end;
+  end;
 end;
 
 procedure TIEGuid.GetPropertyList(const Obj: IDispatch; const S: TStrings);
@@ -119,7 +122,7 @@ begin
       TI.GetDocumentation(FD.memid, @aName, nil, nil, nil);
       vt := fd.elemdescFunc.tdesc.vt;
       if (vt = VT_DISPATCH) or (vt = VT_PTR) then
-        S.add(aname);
+        S.add(aName);
     end;
     TI.ReleaseFuncDesc(FD);
   end;
@@ -132,7 +135,7 @@ function GetFileList(const Path: string; var FileList:
   TStringList): Boolean;
 var
   SearchRec: TSearchRec;
-  ff: integer;
+  ff: Integer;
 begin
   GetFileList := False;
   ff := FindFirst(Path + '\*.*', faAnyFile, SearchRec);
@@ -143,8 +146,7 @@ begin
     begin
       if (SearchRec.Attr and $10 <> $10)
         then
-        if Pos('.h', SearchRec.Name) > 0
-          then
+        if Pos('.h', SearchRec.Name) > 0 then
           FileList.Add(Path + '\' + SearchRec.Name);
     end;
     repeat
@@ -153,8 +155,7 @@ begin
       begin
         if (SearchRec.Name <> '.') and (SearchRec.Name <> '..') then
         begin
-          if (SearchRec.Attr and $10 <> $10)
-            then
+          if (SearchRec.Attr and $10 <> $10) then
             FileList.Add(Path + '\' + SearchRec.Name);
         end;
       end;
@@ -162,9 +163,9 @@ begin
   end;
 end;
 
-function FindStr(S: string; I: integer; Token: string): string;
+function FindStr(S: string; I: Integer; Token: string): string;
 var
-  counter, t, t1, t2: shortint;
+  counter, t, t1, t2: Shortint;
 begin
   S := Token + S + Token;
   counter := 1;
@@ -176,15 +177,15 @@ begin
     inc(counter);
   end;
   t1 := counter;
-  if Copy(S, Counter, 1) = token then
-    result := ''
+  if Copy(S, counter, 1) = token then
+    Result := ''
   else
   begin
     Inc(Counter);
     while Copy(S, counter, 1) <> Token do
       Inc(counter);
     t2 := counter - t1;
-    result := copy(S, t1, t2);
+    Result := copy(S, t1, t2);
   end;
 end;
 
@@ -214,7 +215,7 @@ begin
   S := StringReplace(S, ',', '', [rfReplaceAll, rfIgnoreCase]);
   s := Trim('{' + Copy(s, 1, 8) + '-' + Copy(S, 9, 4) + '-' + Copy(s, 13, 4) + '-' + Copy(s, 17, 4) + '-' + Copy(s, 21, 12) + '}');
   if (Length(s) <> 38) or (Pos('name', g) > 0) or (Pos('DEFINE_', S) > 0) then
-    result := ''
+    Result := ''
   else
     Result := g + '=' + S;
 end;
@@ -257,7 +258,7 @@ begin
   Files := TStringlist.Create;
   Lines := TStringlist.Create;
   Guids := TStringlist.Create;
-  Guids.Sorted := true;
+  Guids.Sorted := True;
   GetFileList(HeadersDir, Files);
   for FCounter := 0 to Files.Count - 1 do
   begin
@@ -265,7 +266,7 @@ begin
     for LCounter := 0 to Lines.Count - 1 do
     begin
       if Pos('MIDL_INTERFACE("', Lines[LCounter]) > 0 then
-//(1) Extract GUIDS from MIDL_INTERFACE("... lines in header files
+      //(1) Extract GUIDS from MIDL_INTERFACE("... lines in header files
       begin
         g := UpperCase('{' + Copy(Trim(Lines[LCounter]), 17, 36) + '}');
         n := Copy(Trim(Lines[LCounter + 1]), 1, 255);
@@ -279,7 +280,7 @@ begin
       else
         if Pos('DEFINE_GUID(', Trim(Lines[LCounter])) = 1 then
         begin
-//(2) Extract GUIDS from DEFINE_GUID("... lines in header files
+          //(2) Extract GUIDS from DEFINE_GUID("... lines in header files
           n := Lines[LCounter];
           x := LCounter;
           while (pos(');', n) = 0) and (x < lines.count) do
@@ -295,7 +296,7 @@ begin
         else
           if (pos('__declspec(uuid("', Lines[LCounter]) > 0) and (Pos(';', Lines[LCounter]) > 0) then
           begin
-// (3) Extract GUIDS from __declspec(uuid("... lines in header files
+            // (3) Extract GUIDS from __declspec(uuid("... lines in header files
             g := Copy(Lines[LCOunter], Pos('declspec(uuid("', Lines[LCounter]) + 15, 255);
             n := '{' + Copy(G, 1, Pos('"', G) - 1) + '}';
             g := Copy(g, Pos(' ', g), 255);
@@ -337,7 +338,7 @@ begin
         Temp.add(copy(guids[i], 5, 255));
 
   end;
-  if temp.IndexOf('CGID_MSHTML={DE4BA900-59CA-11CF-9592-444553540000}') = -1 then
+  if Temp.IndexOf('CGID_MSHTML={DE4BA900-59CA-11CF-9592-444553540000}') = -1 then
     Temp.Add('CGID_MSHTML={DE4BA900-59CA-11CF-9592-444553540000}');
 
   Temp.SaveToFile(IEList);
@@ -378,8 +379,8 @@ end;
 
 constructor TIEGuid.Create(const fname: string);
 begin
-  inherited create;
-  if fileexists(fname) then
+  inherited Create;
+  if FileExists(fname) then
   begin
     Names := TStringlist.Create;
     Guids := TStringlist.Create;
@@ -398,13 +399,13 @@ begin
     Result := GuidStr;
 end;
 
-function TIEGuid.CopyToClipboard(GuidName: string): HRESULT;
+function TIEGuid.CopyToClipboard(GuidName: string): HResult;
 var
  //  s: string;
   x: Integer;
 begin
   x := Names.IndexOf(guidname);
-  if X > -1 then
+  if x > -1 then
   begin
     ClipBoard.SetTextBuf(Pchar(Names[x] + ' : TGUID = ''' + Guids[x] + ''';'));
     Result := S_OK;
@@ -436,7 +437,7 @@ begin
   Result := S_FALSE;
   x := Names.IndexOf(rsid);
   if ((rsid <> '') and (x = -1)) or not Assigned(unk) then
-    exit;
+    Exit;
   if x > -1 then
   begin
     G := Guids[x];
@@ -456,14 +457,14 @@ begin
           then
           S.Add(Names[x]);
       except
-        showmessage('Invalid GUID: ' + Names[x]);
+        ShowMessage('Invalid GUID: ' + Names[x]);
       end;
       Result := S_OK;
     end;
 end;
 
 function TIEGuid.GetInterfaces(Unk: IUnknown;
-  const S: TStrings): HRESULT;
+  const S: TStrings): HResult;
 var
   i: IUnknown;
   x: Integer;
@@ -471,22 +472,21 @@ begin
   Result := S_OK;
   if not Assigned(unk) then
   begin
-    exit;
     Result := S_FALSE;
+    Exit;
   end
   else
     for x := 0 to Guids.count - 1 do
     try
-      if Succeeded(unk.QueryInterface(StringToGuid(Guids[x]), i))
-        then
+      if Succeeded(unk.QueryInterface(StringToGuid(Guids[x]), i)) then
         S.Add(Names[x]);
     except
-      showmessage('Invalid GUID: ' + Names[x]);
+      ShowMessage('Invalid GUID: ' + Names[x]);
     end;
 end;
 
 function TIEGuid.GetInterfacesEx(Unk: IUnknown;
-  const S: TStrings; ShowIUnknown, ShowIDispatch, ShowIDispatchEx, ShowDispinterfaces: Boolean): HRESULT;
+  const S: TStrings; ShowIUnknown, ShowIDispatch, ShowIDispatchEx, ShowDispinterfaces: Boolean): HResult;
 var
   I: IUnknown;
  //  Show: Boolean;
@@ -495,52 +495,50 @@ begin
   Result := S_OK;
   if not Assigned(unk) then
   begin
-    exit;
     Result := S_FALSE;
+    Exit;
   end
   else
     for x := 0 to Guids.count - 1 do
     try
-      if Succeeded(unk.QueryInterface(StringToGuid(Guids[x]), i))
-        then
-        if ((not ShowIdispatch and (Uppercase(Names[x]) = 'IDISPATCH')) or
-          (not ShowIdispatchEx and (Uppercase(Names[x]) = 'IDISPATCHEX')) or
-          (not ShowIUnknown and (Uppercase(Names[x]) = 'IUNKNOWN'))) or
-          (not ShowDispInterfaces and (Pos('DISP', Uppercase(Names[x])) = 1)) then
+      if Succeeded(unk.QueryInterface(StringToGuid(Guids[x]), i)) then
+        if ((not ShowIdispatch and (UpperCase(Names[x]) = 'IDISPATCH')) or
+          (not ShowIdispatchEx and (UpperCase(Names[x]) = 'IDISPATCHEX')) or
+          (not ShowIUnknown and (UpperCase(Names[x]) = 'IUNKNOWN'))) or
+          (not ShowDispInterfaces and (Pos('DISP', UpperCase(Names[x])) = 1)) then
         else
           S.Add(Names[x]);
     except
-      showmessage('Invalid GUID for: ' + Names[x]);
+      ShowMessage('Invalid GUID for: ' + Names[x]);
     end;
 end;
 
-function TIEGuid.GetConnectionPoints(Unk: IUnknown; const S: TStrings; ShowIDispatch: Boolean): HRESULT;
+function TIEGuid.GetConnectionPoints(Unk: IUnknown; const S: TStrings; ShowIDispatch: Boolean): HResult;
 var
   IID: TGuid;
   CPC: IConnectionPointContainer;
   iecp: IEnumConnectionPoints;
   cp: IConnectionPoint;
   Fetched: Integer;
- //  i: integer;
 begin
   Result := S_FALSE;
-  if not assigned(unk) then
-    exit;
-  if Succeeded(Unk.Queryinterface(IConnectionPointContainer, CPC))
-    then
+  if Assigned(unk) then
   begin
-    CPC.EnumConnectionPoints(iecp);
-    iecp.Next(1, cp, @Fetched);
-    repeat
-      cp.GetConnectionInterface(iid);
-      if (Uppercase(NameFromGuid(IID)) = 'IDISPATCH') and not ShowIdispatch then
-      else
-        S.add(NameFromGuid(IID));
+    if Succeeded(Unk.QueryInterface(IConnectionPointContainer, CPC)) then
+    begin
+      CPC.EnumConnectionPoints(iecp);
       iecp.Next(1, cp, @Fetched);
-    until fetched = 0;
-    Result := S_OK
+      repeat
+        cp.GetConnectionInterface(iid);
+        if (Uppercase(NameFromGuid(IID)) = 'IDISPATCH') and not ShowIdispatch
+        then else
+          S.Add(NameFromGuid(IID));
+        iecp.Next(1, cp, @Fetched);
+      until fetched = 0;
+      Result := S_OK
+    end;
   end;
-
 end;
 
 end.
+

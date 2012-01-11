@@ -1,14 +1,12 @@
 //*************************************************************
 //                     Application Updater                    *
 //                                                            *
-//                     For Delphi 5 to 2009                   *
+//                     For Delphi 5 to XE                     *
 //                     Freeware Component                     *
 //                            by                              *
 //                     Eran Bodankin (bsalsa)                 *
-//                     bsalsa@gmail.com                       *
+//                        bsalsa@gmail.com                    *
 //                                                            *
-//  Thanks to Snuki snuki@freemail.hu for his wonderful idea  *
-//  Thanks to smot for English trans' and reformating         *
 //     Documentation and updated versions:                    *
 //               http://www.bsalsa.com                        *
 //*************************************************************
@@ -19,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 3 conditions:
@@ -34,13 +32,13 @@ You may use, change or modify the component under 3 conditions:
    for the benefit of the other users.
 4. Please, consider donation in our web site!
 {*******************************************************************************}
-//$Id: AppWebUpdater.pas,v 1.2 2006/11/15 21:01:38 sergev Exp $
+
 
 unit AppWebUpdater;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   Controls, ActiveX, Windows, SysUtils, Classes, LibXmlParser, ComCtrls, UrlMon;
@@ -49,17 +47,13 @@ type
   TErrorMessage = (emCreateSubBackup, emFileCopyError, emXmlError, emFileNotExist, emCreateFolder,
     emExit, emLocateCurrentVersion, emCurrentVersion, emDownloadInfo, emDownloadFiles,
     emUpdateVersion, emBusy, emDelete, emError, emMatch);
+   TUpdateFormat = (ufCommon, ufRealNumbers);
+   TSuccessMessage = (smDone, smUpdateNotNeeded, smUpdateNeeded, smChecking);
+   TOnError = procedure(Sender: TObject; ErrorCode: TErrorMessage; Parameter, ErrMessage: string) of object;
+   TOnSuccess = procedure(Sender: TObject; SuccessCode: TSuccessMessage; Parameter, SuccessMessage: string) of object;
+   TOnChangeText = procedure(Sender: TObject; Text: string) of object;
+   TProgressEvent = procedure(ProgressMax: integer; Position: integer) of object;
 
-  TOnError = procedure(Sender: TObject; ErrorCode: TErrorMessage; Parameter, ErrMessage: string) of object;
-type
-  TSuccessMessage = (smDone, smUpdateNotNeeded, smUpdateNeeded, smChecking);
-
-  TOnSuccess = procedure(Sender: TObject; SuccessCode: TSuccessMessage; Parameter, SuccessMessage: string) of object;
-type
-
-  TOnChangeText = procedure(Sender: TObject; Text: string) of object;
-  TProgressEvent = procedure(ProgressMax: integer; Position: integer) of object;
-  TUpdateFormat = (ufStandard, ufNumbers);
 
 type
   PUpRec = ^TUpRec;
@@ -74,20 +68,41 @@ type
     WithRestartList: TStringList;
   end;
 
+
+  TVersion = class(TPersistent)
+  private
+    FAppMajorVer: integer;
+    FAppMinorVer: integer;
+    FAppReleaseVer: integer;
+    FAppBuildVer: integer;
+    FNewMajorVer: integer;
+    FNewMinorVer: integer;
+    FNewReleaseVer: integer;
+    FNewBuildVer: integer;
+  published
+    property MajorVersion: integer read FAppMajorVer write FAppMajorVer default 0;
+    property MinorVersion: integer read FAppMinorVer write FAppMinorVer default 0;
+    property ReleaseVersion: integer read FAppReleaseVer write FAppReleaseVer default 0;
+    property BuildVersion: integer read FAppBuildVer write FAppBuildVer default 0;
+  end;
+
+ TVersionArray = Array[0..3] of integer;
+
+
   TWebUpdater = class(TComponent)
   private
     ApplicationFolder: string;
     Busy: Boolean;
     FAbout: string;
-    FAppCurrentVer: Double;
+    FVersion: TVersion;
     FApplicationName: string;
-    FAppNewVer: Double;
     FAuthor: string;
+    FAutoGetExeVersion: boolean;
     FBackupFolder: string;
     FBatFileName: string;
     FCaption: string;
     FCompany: string;
-    FCursor: TCursor;
+    FNewsor: TCursor;
     FDeleteBatch: Boolean;
     FDeleteLog: Boolean;
     FDeleteUpdates: Boolean;
@@ -118,7 +133,6 @@ type
     FShowUpdateFiles: Boolean;
     FStatusBar: TStatusBar;
     FSuccessMessageText: string;
-    FUpdateFormat: TUpdateFormat;
     FUpdateInFoText: TStringList;
     FUpdateText: TStringList;
     FUpdatesFolder: string;
@@ -130,7 +144,7 @@ type
     OldCursor: TCursor;
     XmlParser: TXMLParser;
     function Check_CreateFolder(FolderName: string): boolean;
-    function CheckVersionNum: boolean;
+    function CheckVersions: boolean;
     function CopyFiles(Source, Destination, FileName: string): boolean;
     function CreateSubBackupFolder: boolean;
     function DownloadFile(SourceFile, DestFile: string): Boolean;
@@ -181,22 +195,24 @@ type
     procedure ClearLog;
     procedure Stop;
     procedure SendErrorReport;
+    function GetFileVersion: boolean;
 
   published
     property About: string read FAbout write SetAbout;
     property AbortMessage: string read FAbortMessage write FAbortMessage;
-    property AppCurrentVer: Double read FAppCurrentVer write FAppCurrentVer;
     property ApplicationName: string read FApplicationName write FApplicationName;
     property Author: string read FAuthor write FAuthor;
+    property AutoGetExeVersion: boolean read FAutoGetExeVersion write FAutoGetExeVersion default False;
     property BackupFolder: string read FBackupFolder write FBackupFolder;
     property Caption: string read FCaption write FCaption;
     property Company: string read FCompany write FCompany;
-    property Cursor: TCursor read FCursor write FCursor default crAppStart;
+    property Cursor: TCursor read FNewsor write FNewsor default crAppStart;
     property DeleteOldBackupOnInit: Boolean read FDeleteBackups write FDeleteBackups default False;
     property DeleteBatchFileOnComplete: Boolean read FDeleteBatch write FDeleteBatch default True;
     property DeleteLogOnComplete: Boolean read FDeleteLog write FDeleteLog default True;
     property DeleteUpdatesOnComplete: Boolean read FDeleteUpdates write FDeleteUpdates default True;
     property DeleteWebInfoFileOnComplete: Boolean read FDeleteWebInfo write FDeleteWebInfo default True;
+    property ApplicationVersion: TVersion read FVersion write FVersion;
     property EMail: string read FEMail write FEMail;
     property Enabled: boolean read FEnabled write FEnabled default True;
     property ErrorMessage: string read FErrorMessage write FErrorMessage;
@@ -221,7 +237,6 @@ type
     property ShowUpdateFilesList: boolean read FShowUpdateFiles write FShowUpdateFiles default False;
     property StatusBar: TStatusBar read FStatusBar write FStatusBar;
     property SuccessMessageText: string read FSuccessMessageText write FSuccessMessageText;
-    property UpdateFormat: TUpdateFormat read FUpdateFormat write FUpdateFormat default ufNumbers;
     property UpdateInfoText: TStringList read FUpdateInfoText write SetUpdateInfoText;
     property UpdatesFolder: string read FUpdatesFolder write FUpdatesFolder;
     property WebInfoFileName: string read FWebInfoFileName write FWebInfoFileName;
@@ -259,7 +274,7 @@ var
   UpdateRec: TUpdatesList;
 
 const
-  LineBrk = #10 + #13;
+  LineBrk = #13#10;
   LineSpc = '                  ';
 
 ///////////--- DownloadCallback Part --------///////////////
@@ -507,12 +522,18 @@ end;
 constructor TWebUpdater.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FCursor := crAppStart;
+  FVersion:= TVersion.Create;
+  with FVersion do
+  begin
+   FAppMajorVer:= 0;
+   FAppMinorVer:= 0;
+   FAppReleaseVer:= 0;
+   FAppBuildVer:= 0;
+  end;
+  FNewsor := crAppStart;
   FAbortMessage := sAbortMessage;
   FAbout := 'Application Updater by bsalsa : bsalsa@gmail.com';
   Busy := False;
-  FAppCurrentVer := 0.001;
-  FAppNewVer := 0.001;
   FBackupFolder := 'Backup\';
   FLogDateStamp := True;
   FWebURL := 'http://';
@@ -545,11 +566,9 @@ begin
   FOpenAppFolder := False;
   XmlParser := TXMLParser.Create;
   FLogFileName := 'Updater.txt';
-  FWebInfoFileName := 'Updates.xml';
+  FWebInfoFileName := 'Update.xml';
   FCaption := sCaption;
-  FUpdateFormat := ufNumbers;
   Quit := False;
-
   UpdateRec.NoRestartList := TStringList.Create;
   UpdateRec.NoRestartList.Duplicates := dupIgnore;
   UpdateRec.WithRestartList := TStringList.Create;
@@ -576,6 +595,7 @@ begin
     Dispose(PUpRec(UpdateRec.NoRestartList.Objects[I]));
   FreeAndNil(UpdateRec.WithRestartList); // global variable
   FreeAndNil(UpdateRec.NoRestartList); // global variable
+  FVersion.Free;
   inherited Destroy;
 end;
 
@@ -650,7 +670,7 @@ begin
   OldCaption := Forms.Application.MainForm.Caption;
   Forms.Application.MainForm.Caption := FCaption;
   OldCursor := Screen.Cursor;
-  Screen.Cursor := FCursor;
+  Screen.Cursor := FNewsor;
 end;
 
 procedure TWebUpdater.RestoreAppControls;
@@ -663,10 +683,7 @@ end;
 
 ///////////////// private procedures //////////////
 
-function TWebUpdater.CheckVersionNum: boolean;
-var
-  iNew, ICur: integer;
-  Info: string;
+function TWebUpdater.CheckVersions: boolean;
 begin
   Result := False;
   if Quit then
@@ -674,28 +691,34 @@ begin
     ExitUser;
     Exit;
   end;
-  if (fAppCurrentVer < 0) or (fAppCurrentVer > 100000) then
+    if (FVersion.FNewMajorVer > FVersion.FAppMajorVer) or
+
+     (FVersion.FNewMajorVer = FVersion.FAppMajorVer) and
+     (FVersion.FNewMinorVer > FVersion.FAppMinorVer)  or
+
+     (FVersion.FNewMajorVer = FVersion.FAppMajorVer) and
+     (FVersion.FNewMinorVer = FVersion.FAppMinorVer)  and
+     (FVersion.FNewReleaseVer > FVersion.FAppReleaseVer) or
+
+     (FVersion.FNewMajorVer = FVersion.FAppMajorVer) and
+     (FVersion.FNewMinorVer = FVersion.FAppMinorVer)  and
+     (FVersion.FNewReleaseVer = FVersion.FAppReleaseVer) and
+     (FVersion.FNewBuildVer > FVersion.FAppBuildVer) then
   begin
-    AddLog(sErrorCurrentVersionDefinition);
-    ErrMessagesHandler(emCurrentVersion, sDefinition);
-  end;
-  if (fAppNewVer < 0) or (fAppNewVer > 100000) then
-  begin
-    AddLog(sErrorNewVersionDefinition);
-    ErrMessagesHandler(emUpdateVersion, sDefinition);
-  end;
-  iNew := StrToInt(FloatToStr(fAppNewVer * 1000));
-  iCur := StrToInt(FloatToStr(fAppCurrentVer * 1000));
-  if (iNew > iCur) then
-  begin
-    AddLog(sUpdateAvailable + info);
+    AddLog(sUpdateAvailable);
     UpdateTextControls(sUpdateAvailable);
     Result := True;
   end
   else
-  begin
     UpdateTextControls(sUpdateNotNeeded);
-  end;
+     AddLog('New Major Version: ' + IntToStr(FVersion.FNewMajorVer));
+     AddLog('App Major Version: ' + IntToStr(FVersion.FAppMajorVer));
+     AddLog('New Minor Version: ' + IntToStr(FVersion.FNewMinorVer));
+     AddLog('App Minor Version: ' + IntToStr(FVersion.FAppMinorVer));
+     AddLog('New Release Version: ' + IntToStr(FVersion.FNewReleaseVer));
+     AddLog('App Release Version: ' + IntToStr(FVersion.FAppReleaseVer));
+     AddLog('New Build Version: ' + IntToStr(FVersion.FNewBuildVer));
+     AddLog('App Build Version: ' + IntToStr(FVersion.FAppBuildVer));
 end;
 
 function TWebUpdater.Check_CreateFolder(FolderName: string): boolean;
@@ -860,14 +883,15 @@ begin
   Dcb := TDownloadCallback.Create;
   Dcb.ProgressMax := 100;
   try
-    st := sApplicationFolder + DestFile;
+    st := ApplicationFolder + DestFile; //bs
     AddLog(sTrying + SourceFile + sDest + st);
+    AddLog(sDest + st);
     if UrlDownloadToFile(nil, PChar(SourceFile), PChar(DestFile), 0, dcb) = 0 then
     begin
       UpdateProgressControls(100, Dcb.Position);
       Result := True;
-      AddLog(OnProgressStatusList.Text + LineBrk + sDownloading + SourceFile +
-        sDest + st + sSuccess)
+      AddLog(OnProgressStatusList.Text + LineBrk + sDownloading + SourceFile + LineBrk
+        + sDest + st + sSuccess)
     end
     else
     begin
@@ -894,7 +918,7 @@ begin
     FileName := (GetCurrentDir + '\' + TrimLeft(FileName));
   begin
     FileName := TrimLeft(FileName);
-    if DeleteFile(PChar(FileName)) then
+    if DeleteFile(FileName) then
     begin
       if FileName <> FLogFileName then
       begin
@@ -966,11 +990,11 @@ begin
 {$IFDEF DELPHI6_UP}
 {$WARN SYMBOL_PLATFORM OFF}
 {$ENDIF}
-  XmlFile := Pchar(FWebURL + '/' + (fWebInfoFileName));
+  XmlFile := FWebURL + '/' + (fWebInfoFileName);
   FBatFileName := ChangeFileExt(Application.ExeName, '.bat');
   FExeName := ExtractFileName(Application.ExeName);
   FUpdatesFolder := IncludeTrailingBackslash(fUpdatesFolder);
-  ApplicationFolder := IncludeTrailingBackslash(UpperCase(ExtractFilePath(Application.ExeName)));
+  ApplicationFolder := IncludeTrailingBackslash(ExtractFilePath(Application.ExeName));
   if Trim(fBackupFolder) = ''
     then
     FBackupFolder := ApplicationFolder + FBackupFolder
@@ -987,6 +1011,8 @@ begin
   ClearLog;
   WriteLog;
   AddLog(sInitialing);
+  if FAutoGetExeVersion then
+    GetFileVersion;
   NeedTerminate := False;
   FUpdateText.Clear;
   UpdateAppControls;
@@ -1005,10 +1031,7 @@ var
   UpdRec: PUpRec;
   MS: TMemoryStream;
   Zero: Char;
-  Container: string;
-{$IFDEF DELPHI7_UP}
-  FormatSettings: TFormatSettings;
-{$ENDIF}
+  Container, tmpFileName: string;
 begin
   Result := False;
   if Quit then
@@ -1019,9 +1042,10 @@ begin
   AddLog(sStartDownloadingXml);
   if DownloadFile(XmlFile, FWebInfoFileName) then
   begin
-    if not FileExists(ExtractFilePath(ParamStr(0)) + FWebInfoFileName) then
+    tmpFileName := ExtractFilePath(ParamStr(0)) + FWebInfoFileName;
+    if not FileExists(tmpFileName) then
     begin
-      ErrMessagesHandler(emFileNotExist, FWebInfoFileName);
+      ErrMessagesHandler(emFileNotExist, tmpFileName);
       ExitError(fErrorMessage + sTryingToLocate);
       Exit;
     end
@@ -1035,6 +1059,7 @@ begin
         XmlParser.SetBuffer(MS.Memory);
         XmlParser.Normalize := False;
         XmlParser.StartScan;
+        AddLog('Start Scanning ' + tmpFileName);
         if not GetXmlHead then
           if FQuitOnError then
           begin
@@ -1113,29 +1138,40 @@ begin
             Exit;
           end;
         FCompany := XmlParser.CurContent;
-        if not GetXmlTag(sXmlVersion) then
-          if FQuitOnError then
-          begin
-            ExitError(sXMLFileError + sXmlVersion);
-            Exit;
-          end;
-        if not GetXmlData then
-          if FQuitOnError then
-          begin
-            ExitError(sXMLFileError + sXmlVersion);
-            Exit;
-          end;
-{$IFDEF DELPHI7_UP}
-        GetLocaleFormatSettings(LOCALE_SYSTEM_DEFAULT, formatSettings);
-        FormatSettings.DecimalSeparator := '.';
-        fAppNewVer := StrToFloat(XmlParser.CurContent, FormatSettings);
-{$ELSE}
-        fAppNewVer := StrToFloat(XmlParser.CurContent);
-{$ENDIF}
-        AddLog(sCurrentVersion + FloatToStr(AppCurrentVer) +
-          LineBrk + sNewUpdateVersion + XmlParser.CurContent);
 
-        if not GetXmlTag(sXmlChangeLog) then
+       if not GetXmlTag(sXmlMajorVer)or (not GetXmlData) then
+          if FQuitOnError then
+          begin
+            ExitError(sXMLFileError + sXmlVersion);
+            Exit;
+          end;
+        FVersion.FNewMajorVer := StrToInt(XmlParser.CurContent);
+
+       if not GetXmlTag(sXmlMinorVer)or (not GetXmlData) then
+          if FQuitOnError then
+          begin
+            ExitError(sXMLFileError + sXmlVersion);
+            Exit;
+          end;
+        FVersion.FNewMinorVer := StrToInt(XmlParser.CurContent);
+
+       if not GetXmlTag(sXmlReleaseVer)or (not GetXmlData) then
+          if FQuitOnError then
+          begin
+            ExitError(sXMLFileError + sXmlVersion);
+            Exit;
+          end;
+        FVersion.FNewReleaseVer := StrToInt(XmlParser.CurContent);
+
+      if not GetXmlTag(sXmlBuildVer)or (not GetXmlData) then
+          if FQuitOnError then
+          begin
+            ExitError(sXMLFileError + sXmlVersion);
+            Exit;
+          end;
+        FVersion.FNewBuildVer := StrToInt(XmlParser.CurContent);
+
+      if not GetXmlTag(sXmlChangeLog) then
           if FQuitOnError then
           begin
             ExitError(sXMLFileError + sXmlChangeLog + sSection);
@@ -1174,7 +1210,8 @@ begin
               if (Container = sXmlDestination) then
               begin
                 UpdRec.dlDestination := Trim(Node.Value) + '\';
-                if UpdRec.dlDestination = sApplicationFolder then
+                if (UpdRec.dlDestination = ApplicationFolder) or
+                  (UpdRec.dlDestination = '\') then
                   UpdRec.dlDestination := '';
               end
               else
@@ -1250,12 +1287,10 @@ end;
 
 function TWebUpdater.PerformMatchDetails(aString, bString: string): boolean;
 begin
+  Result := True;
   AddLog(sMatchingDetails + aString + sInTo + bString);
   if aString = bString then
-  begin
-    AddLog(sResultMatch);
-    Result := True;
-  end
+    AddLog(sResultMatch)
   else
   begin
     AddLog(sResultNoMatch);
@@ -1282,6 +1317,7 @@ begin
     IDLE_PRIORITY_CLASS, nil, nil, StartupInfo, ProcessInfo) then
   begin
     AddLog(sRestarting);
+    Application.ProcessMessages;
     CloseHandle(ProcessInfo.hThread);
     GetExitCodeProcess(ProcessInfo.hProcess, Res);
     CloseHandle(ProcessInfo.hProcess);
@@ -1389,7 +1425,7 @@ begin
       begin
         if not FileExists(fUpdatesFolder + Trim(UpdateRec.NoRestartList[i])) then
         begin
-          DLfilename := FWebURL + '/' + (Pchar(Trim(UpdateRec.NoRestartList[i])));
+          DLfilename := FWebURL + '/' + (Trim(UpdateRec.NoRestartList[i]));
           Dest := FUpdatesFolder + Trim(UpdateRec.NoRestartList[i]);
           DownloadFile(DLfilename, Dest);
         end
@@ -1412,7 +1448,7 @@ begin
       begin
         if not FileExists(fUpdatesFolder + Trim(UpdateRec.WithRestartList[i])) then
         begin
-          DLfilename := FWebURL + '/' + (Pchar(Trim(UpdateRec.WithRestartList[i])));
+          DLfilename := FWebURL + '/' + (Trim(UpdateRec.WithRestartList[i]));
           Dest := FUpdatesFolder + Trim(UpdateRec.WithRestartList[i]);
           DownloadFile(DLfilename, Dest);
         end
@@ -1444,8 +1480,7 @@ begin
     ExitError(fErrorMessage + sXMLError)
   else
   begin
-    if FUpdateFormat = ufNumbers then
-      if not CheckVersionNum then
+   if (not CheckVersions) then
       begin
         ExitNoUpdateFound;
         Exit;
@@ -1545,6 +1580,30 @@ begin
   Result := not Busy;
 end;
 
+function TWebUpdater.GetFileVersion: boolean;
+var
+  InfoSize: DWORD;
+  pInfo: Pointer;
+  ValueSize: DWORD;
+  FixedFileInfo: PVSFixedFileInfo;
+  dwHandle: DWORD;
+begin
+  Result:= False;
+  InfoSize := GetFileVersionInfoSize(PChar(ParamStr(0)), dwHandle);
+  GetMem(pInfo, InfoSize);
+  GetFileVersionInfo(PChar(ParamStr(0)), 0, InfoSize, pInfo);
+  VerQueryValue(pInfo, '', Pointer(FixedFileInfo), ValueSize);
+  with FixedFileInfo^ do
+  begin
+    FVersion.FAppMajorVer := dwFileVersionMS shr 16;
+    FVersion.FAppMinorVer := dwFileVersionMS and $FFFF;
+    FVersion.FAppReleaseVer := dwFileVersionLS shr 16;
+    FVersion.FAppBuildVer := dwFileVersionLS and $FFFF;
+  end;
+  FreeMem(pInfo, InfoSize);
+end;
+
+
 procedure TWebUpdater.SendErrorReport;
 var
   emMail, emSubject: string;
@@ -1578,3 +1637,4 @@ end;
 ///////////////// End of public procedures//////////////
 
 end.
+

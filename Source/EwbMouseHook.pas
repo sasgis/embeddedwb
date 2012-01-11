@@ -1,7 +1,7 @@
 //***********************************************************
 //                       EwbMouseHook unit                  *
 //                                                          *
-//                       For Delphi 5 to 2009               *
+//                     For Delphi 5 to XE                   *
 //                     Freeware Component                   *
 //                            by                            *
 //                          (smot)                          *
@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -37,7 +37,6 @@ unit EwbMouseHook;
 
 interface
 
-{$I EWB_jedi.inc}
 {$I EWB.inc}
 
 uses
@@ -138,6 +137,7 @@ var
   hwndFromPoint, hwndFocusShellEmbedding, hwndWFPShellEmbedding: HWND;
   WinControl: TWinControl;
   ParentForm: TCustomForm;
+//  nState: SHORT;
 begin
   if nCode < 0 then
     Result := CallNextHookEx(FMouseHook, nCode, wp, LPARAM(lp))
@@ -184,8 +184,12 @@ begin
                 'Shell DocObject View') then
                           // Only handle if WB has not the focus or other WB has the focus
               begin
+            //  nState := GetKeyState(VK_CONTROL);
+            //  if (nState and $80000000) = $80000000 then
+              begin
                 bHandled := True;
                 Windows.SetFocus(hwndFromPoint);
+              end;
               end;
             end;
           end;

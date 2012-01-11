@@ -1,13 +1,13 @@
 //***********************************************************
 //                    Import Favorites                      *
 //                                                          *
-//               For Delphi 5,6, 7 , 2005, 2006             *
+//                     For Delphi 5 to XE                   *
 //                     Freeware Component                   *
 //                            by                            *
 //                     Eran Bodankin (bsalsa)               *
-//                     bsalsa@gmail.com                    *
+//                     bsalsa@gmail.com                     *
 //                                                          *
-//           Based on idea's by:  Troels Jakobsen           *
+//           Based on ideas by:  Troels Jakobsen            *
 //                                                          *
 //     Documentation and updated versions:                  *
 //               http://www.bsalsa.com                      *
@@ -20,12 +20,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -41,12 +41,24 @@ unit ImportFavorites;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
-  Windows, SysUtils, Classes, Dialogs, IniFiles, SHDocVw_EWB, EmbeddedWB, Registry, ComCtrls;
+  Windows, SysUtils, Classes, Dialogs, IniFiles, SHDocVw_EWB,
+  EmbeddedWB, EWBCore, Registry, ComCtrls;
+
+const
+  ERROR_FAV_CURRENT_PATH_INVALID = 101;
+  ERROR_FAV_CURRENT_FILENAME_INVALID = 102;
+  ERROR_FAV_TARGET_FILENAME_EXTINVALID = 103;
+  ERROR_FAV_TARGET_SUBFOLDER_INVALID = 104;
+  ERROR_FAV_NO_SUCCESS_MESSAGE = 105;
+  ERROR_FAV_FILE_NOTEXIST = 106;
 
 type
+  TOnErrorEvent = procedure(Sender: TObject; const ErrorMsg: string;
+    const ErrorCode: Byte) of object;
+
   PUrlRec = ^TUrlRec;
   TUrlRec = record
     Rep: string;
@@ -55,10 +67,30 @@ type
     Level: Integer;
   end;
 
+  TLocalization = class(TPersistent)
+  private
+    FCurrentPathInvalid: string;
+    FCurrentFileNameInvalid: string;
+    FTargetFileNameExtInvalid: string;
+    FTargetSubFolderInvalid: string;
+    FNoSuccessMessage: string;
+    FChangeItMessage: string;
+    FFavFileNotExistInPath: string;
+  published
+    property CurrentPathInvalid: string read FCurrentPathInvalid write FCurrentPathInvalid;
+    property CurrentFileNameInvalid: string read FCurrentFileNameInvalid write FCurrentFileNameInvalid;
+    property TargetFileNameExtInvalid: string read FTargetFileNameExtInvalid write FTargetFileNameExtInvalid;
+    property TargetSubFolderInvalid: string read FTargetSubFolderInvalid write FTargetSubFolderInvalid;
+    property NoSuccessMessage: string read FNoSuccessMessage write FNoSuccessMessage;
+    property ChangeItMessage: string read FChangeItMessage write FChangeItMessage;
+    property FavFileNotExistInPath: string read FFavFileNotExistInPath write FFavFileNotExistInPath;
+  end;
+
 type
   TImportFavorite = class(TComponent)
   private
-    BookmarkList: TStringList;
+    FBookmarkList: TStringList;
+    FLocalization: TLocalization;
     FAbout: string;
     FCurrentFileName: string;
     FCurrentFilePath: string;
@@ -69,10 +101,11 @@ type
     FStatusBar: TStatusBar;
     FSuccessMessage: TStrings;
     FTargetSubFolder: string;
-    FWebBrowser: TEmbeddedWB;
+    FWebBrowser: TCustomEmbeddedWB;
     L: TList;
     LvlList: TStringList;
     TargetFolder: string;
+    FOnError: TOnErrorEvent;
     function FindFolder(HtmlStr: string; var Lvl: Integer): Boolean;
     function FindSectionEnd(HtmlStr: string; var Lvl: Integer): Boolean;
     function FindUrl(HtmlStr: string; Lvl: Integer): Boolean;
@@ -85,35 +118,37 @@ type
     procedure ScanBmkLine(I: Integer; Lvl: Integer);
     procedure SetAbout(Value: string);
     procedure SetSuccessMessage(Value: TStrings);
-  protected
-
+    function Check: Boolean;
   public
     SuccessFlag: Boolean;
     NavigatePath: string;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure ImportFavorites;
+    function ImportFavorites: Boolean;
   published
-    property About: string read fAbout write SetAbout;
+    property About: string read FAbout write SetAbout;
     property CurrentFileName: string read FCurrentFileName write FCurrentFileName;
     property CurrentFilePath: string read FCurrentFilePath write FCurrentFilePath;
-    property Enabled: boolean read fEnabled write fEnabled default True;
-    property FavoritesPath: string read fFavoritesPath write fFavoritesPath;
-    property NarigateOnComplete: Boolean read fNavigateOnComplete write fNavigateOnComplete default False;
-    property ShowSuccessMessage: Boolean read fShowSuccessMessage write fShowSuccessMessage default True;
+    property Enabled: boolean read FEnabled write FEnabled default True;
+    property FavoritesPath: string read FFavoritesPath write FFavoritesPath;
+    property NarigateOnComplete: Boolean read FNavigateOnComplete write FNavigateOnComplete default False;
+    property ShowSuccessMessage: Boolean read FShowSuccessMessage write FShowSuccessMessage default True;
     property StatusBar: TStatusBar read FStatusBar write FStatusBar;
     property SuccessMessage: TStrings read FSuccessMessage write SetSuccessMessage;
-    property TargetSubFolder: string read fTargetSubFolder write fTargetSubFolder;
-    property WebBrowser: TEmbeddedWB read fWebBrowser write fWebBrowser;
+    property TargetSubFolder: string read FTargetSubFolder write FTargetSubFolder;
+    property WebBrowser: TCustomEmbeddedWB read FWebBrowser write FWebBrowser;
+    property OnError: TOnErrorEvent read FOnError write FOnError;
+    property Localization: TLocalization read FLocalization write FLocalization;
   end;
 
 implementation
+
 uses
   IEConst, EwbCoreTools;
 
 constructor TImportFavorite.Create;
 begin
-  FAbout := 'TImportFavorites by bsalsa. ' + WEB_SITE;
+  FAbout := 'TImportFavorite by bsalsa. ' + WEB_SITE;
   FCurrentFileName := 'newbook.htm';
   FCurrentFilePath := 'C:\';
   FTargetSubFolder := 'Imported Bookmarks';
@@ -121,6 +156,16 @@ begin
   FSuccessMessage := TStringList.Create;
   FSuccessMessage.Add('The bookmarks have been imported into your favorites successfully!'
     + #10 + #13 + 'You can find them in your favorites as a sub folder.');
+
+  FLocalization := TLocalization.Create;
+  FLocalization.FCurrentPathInvalid := 'The favorites file path is invalid.';
+  FLocalization.FCurrentFileNameInvalid := 'The Current file name is invalid.';
+  FLocalization.FTargetFileNameExtInvalid := 'The target file name extention is invalid.';
+  FLocalization.FTargetSubFolderInvalid := 'You must specify a proper sub folder name.';
+  FLocalization.FFavFileNotExistInPath := 'The specified favorite file does not exist in the current path.';
+  FLocalization.NoSuccessMessage := 'You must enter a SuccessMessage or turn off messages.';
+  FLocalization.ChangeItMessage := 'Please change it.';
+
   FShowSuccessMessage := True;
   SuccessFlag := False;
   FEnabled := True;
@@ -204,11 +249,11 @@ end;
 
 procedure TImportFavorite.ScanBmkLine(I: Integer; Lvl: Integer);
 begin
-  if I < BookmarkList.Count - 1 then
+  if I < FBookmarkList.Count - 1 then
   begin
-    if not FindSectionEnd(BookmarkList[I], Lvl) then
-      if not FindUrl(BookmarkList[I], Lvl) then
-        FindFolder(BookmarkList[I], Lvl);
+    if not FindSectionEnd(FBookmarkList[I], Lvl) then
+      if not FindUrl(FBookmarkList[I], Lvl) then begin end;
+        FindFolder(FBookmarkList[I], Lvl);
     ScanBmkLine(I + 1, Lvl);
   end;
 end;
@@ -353,80 +398,98 @@ var
 begin
   for I := 1 to Length(S) do
     if CharInSet(S[I], ['\', '/', ':', '*', '?', '"', '<', '>', '|']) then
-    //  if S[I] in ['\', '/', ':', '*', '?', '"', '<', '>', '|'] then
+      //  if S[I] in ['\', '/', ':', '*', '?', '"', '<', '>', '|'] then
       S[I] := ReplacedChar;
 end;
 
-procedure TImportFavorite.ImportFavorites;
+function TImportFavorite.Check: Boolean;
+begin
+  Result :=  FCurrentFilePath <> '';
+  if not Result then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.FCurrentPathInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_CURRENT_PATH_INVALID);
+    Result := False;
+  end
+  else if FCurrentFileName = '' then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.FCurrentFileNameInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_CURRENT_FILENAME_INVALID);
+    Result := False;
+  end
+  else if not (Pos('htm', FCurrentFileName) > 1) then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.FTargetFileNameExtInvalid + #10#13 + FLocalization.ChangeItMessage + '"*.htm"', ERROR_FAV_TARGET_FILENAME_EXTINVALID);
+    Result := False;
+  end
+  else if FTargetSubFolder = '' then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.FTargetSubFolderInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_TARGET_SUBFOLDER_INVALID);
+    Result := False;
+  end
+  else if FSuccessMessage.Text = '' then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.NoSuccessMessage + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_NO_SUCCESS_MESSAGE);
+    Result := False;
+  end
+  else if not FileExists(FCurrentFilePath + '\' + FCurrentFileName) then
+  begin
+    if Assigned(FOnError) then
+      FOnError(Self, FLocalization.FFavFileNotExistInPath + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_NO_SUCCESS_MESSAGE);
+    Result := False;
+  end
+end;
+
+function TImportFavorite.ImportFavorites: Boolean;
 var
   R: TSearchRec;
   FavFolder: string;
 begin
-  if not Enabled then Exit;
-  if FCurrentFilePath = '' then
+  Result := Enabled;
+  if Result and Check then
   begin
-    MessageDlg('The favorites file path is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if FCurrentFileName = '' then
-  begin
-    MessageDlg('The Current file name is invalid.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if not (Pos('htm', FCurrentFileName) > 1) then
-  begin
-    MessageDlg('The target file name extention is invalid.' + #10 + #13 + 'Please change it to "*.htm".', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if fTargetSubFolder = '' then
-  begin
-    MessageDlg('You must a proper sub folder name.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if FSuccessMessage.Text = '' then
-  begin
-    MessageDlg('You must enter a message or turn off messages.' + #10 + #13 + 'Please change it.', mtError, [MbOk], 0);
-    Exit;
-  end;
-  if not FileExists(FCurrentFilePath + '\' + FCurrentFileName) then
-  begin
-    MessageDlg('The Favorite file you specified does not exist in the current path.', mtError, [MbOk], 0);
-  end
-  else
-  begin
-    BookmarkList := TStringList.Create;
-    BookmarkList.LoadFromFile(FCurrentFilePath + FCurrentFileName);
-    if FFavoritesPath = 'Auto' then
-      GetFavoritesFolder(FavFolder)
-    else
-      FavFolder := fFavoritesPath;
-    if (FavFolder <> '') then
-    begin
-      CreateDirectory(PChar(FavFolder + '\' + TargetSubFolder), nil);
-      if FindFirst(FavFolder + '\' + TargetSubFolder, faDirectory, R) = 0 then
-      begin
-        TargetFolder := FavFolder + '\' + TargetSubFolder;
-        Convert(FavFolder + '\' + TargetSubFolder);
-        if FShowSuccessMessage then
-          MessageDlg(FSuccessMessage.Text, mtInformation, [MbOk], 0);
-        if assigned(FStatusBar) then
-          FStatusBar.SimpleText := SuccessMessage.Text;
-        SuccessFlag := True;
-        if FNavigateOnComplete then
-          if Assigned(FWebBrowser) then
-            FWebBrowser.Navigate(FCurrentFilePath + FCurrentFileName)
-          else
-            MessageDlg(ASS_MESS, mtError, [MbOk], 0);
-      end
+    FBookmarkList := TStringList.Create;
+    try
+      FBookmarkList.LoadFromFile(FCurrentFilePath + FCurrentFileName);
+      if FFavoritesPath = 'Auto' then
+        GetFavoritesFolder(FavFolder)
       else
+        FavFolder := FFavoritesPath;
+      if (FavFolder <> '') then
       begin
-        MessageDlg('The subfolder name you specified is invalid.', mtError, [MbOk], 0);
-        SuccessFlag := False;
+        CreateDirectory(PChar(FavFolder + '\' + TargetSubFolder), nil);
+        if FindFirst(FavFolder + '\' + TargetSubFolder, faDirectory, R) = 0 then
+        begin
+          TargetFolder := FavFolder + '\' + TargetSubFolder;
+          Convert(FavFolder + '\' + TargetSubFolder);
+          if FShowSuccessMessage then
+            MessageDlg(FSuccessMessage.Text, mtInformation, [MbOk], 0);
+          if Assigned(FStatusBar) then
+            FStatusBar.SimpleText := SuccessMessage.Text;
+          SuccessFlag := True;
+          Result := True;
+          if FNavigateOnComplete then
+            if Assigned(FWebBrowser) then
+              FWebBrowser.Navigate(FCurrentFilePath + FCurrentFileName)
+            else
+              MessageDlg(ASS_MESS, mtError, [MbOk], 0);
+        end
+        else
+        begin
+          if Assigned(FOnError) then
+            FOnError(Self, FLocalization.FTargetSubFolderInvalid + #10#13 + FLocalization.ChangeItMessage, ERROR_FAV_TARGET_SUBFOLDER_INVALID);
+          SuccessFlag := False;
+        end;
+        FindClose(R);
       end;
-      FindClose(R);
+    finally
+      FBookmarkList.Free;
     end;
-    BookmarkList.Free;
   end;
 end;
 
 end.
+

@@ -1,8 +1,7 @@
 //*************************************************************
 //      EWB.inc - Embedded Webbrowser definitions             *
 //                                                            *
-//               For Delphi 5, 6, 7 , 2005, 2006 & Turbo,     *
-//                          2007, 2009                        *
+//               For Delphi 5 -Delphi XE                      *
 //                     Freeware unit                          *
 //                            by                              *
 //                     Eran Bodankin (bsalsa)                 *

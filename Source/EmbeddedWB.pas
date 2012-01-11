@@ -2,11 +2,11 @@
 //                        TEmbeddedWB                         *
 //							      *
 //                     Freeware Component                     *
-//                       For Delphi                           *
+//                       For Delphi 5 to Delphi XE            *
 //                            by                              *
 //                     Per Lindso Larsen                      *
 //      Developing Team:                                      *
-//          Eran Bodankin (bsalsa) -(bsalsa@gmail.com)       *
+//          Eran Bodankin (bsalsa) -(bsalsa@gmail.com)        *
 //          Thomas Stutz -(smot777@yahoo.com)                 *
 //                                                            *
 //     Contributors:                                          *
@@ -23,18 +23,18 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use/change/modify the component under 4 conditions:
 1. In your web site, add a link to "http://www.bsalsa.com"
 2. In your application, add credits to "Embedded Web Browser"
-3. Mail me  (bsalsa@gmail.com) any code change in the unit for the benefit
+3. Mail me (bsalsa@gmail.com) any code change in the unit for the benefit
    of the other users.
 4. Please, consider donation in our web site!
 {*******************************************************************************}
@@ -43,21 +43,20 @@ unit EmbeddedWB;
 
 interface
 
-{$I EWB_jedi.inc}
 {$I EWB.inc}
 
 uses
   Windows, Messages,
-{$IFDEF DELPHI6_UP}Variants, {$ENDIF}
-  Classes, EwbCore, MSHTML_EWB, EwbAcc, Controls, Graphics, Forms,
+  Classes, EwbCore, Dialogs, MSHTML_EWB, EwbAcc, Controls, Graphics, Forms,
   ExtCtrls, ActiveX, ShlObj, SysUtils, SHDocVw_EWB, EwbCoreTools, UrlMon
+{$IFDEF DELPHI6_UP}, Variants{$ENDIF}
 {$IFDEF Enable_EwbMSHTMLEvents}, MSHTMLEvents{$ENDIF}
 {$IFDEF AutoUse_EwbControl}, EwbControlComponent{$ENDIF};
 
 type
   TEmbeddedWB = class;
 
-   {Private events}
+  {Private events}
   TShowDialogEvent = procedure(Sender: TObject; h: THandle; StyleEx: Integer; OldCaption: string;
     var NewCaption: WideString; var Cancel: Boolean) of object;
   TMsgEvent = procedure(Sender: TObject; var Msg: TMessage; var Handled: Boolean) of object;
@@ -65,6 +64,18 @@ type
   TUserAgentMode = (uaDefault, uaInternal, uaRegistry);
   TKeyEventEx = procedure(Sender: TObject; var Key: Word; ScanCode: Word;
     Shift: TShiftState) of object;
+  THookChildWindowEvent = procedure(Sender: TObject; WinHandle: HWND; WinClass: string; var Handled: Boolean) of object;
+  THTMLCodeChangeEvent = procedure(Sender: TObject; HTMLCode: TStrings; var Handled: Boolean) of object;
+
+  TScrollIntoView = (sivNoScroll, sivFirstMatch, sivLastMatch);
+  TSearchFlags = set of (sfMatchWholeWord, sfMatchCase);
+  TVariantArray = array of OleVariant;
+
+{$IFDEF USE_EwbTools}
+  TSearchResult = (srNotFound, srEndOf, srFound);
+  TSearchResults = set of TSearchResult;
+  TSearchDirections = (sdDown, sdUp);
+{$ENDIF}
 
   {============================================================================}
   // TProxySettings
@@ -77,9 +88,10 @@ type
     FPassword: string;
     FAutoLoadProxy: Boolean;
     FUserAgent: string;
+    FBypass: string;
   public
 {$IFDEF USE_EwbTools}
-    function SetProxy(UserAgent, Address: string): Boolean; overload;
+    function SetProxy(UserAgent, Address, Bypass: string): Boolean; overload;
     function SetProxy(UserAgent, Address, UserName, Password: string; Port: Integer): Boolean; overload;
     function SetProxyFromPAC(UserAgent, PACFile: string): Boolean;
 {$ENDIF}
@@ -90,6 +102,7 @@ type
     property Address: string read FAddress write FAddress;
     property UserName: string read FUserName write FUserName;
     property UserAgent: string read FUserAgent write FUserAgent;
+    property Bypass: string read FBypass write FBypass;
   end;
 
   {============================================================================}
@@ -178,14 +191,6 @@ type
     property Orientation: TPrintOrientationOption read FOrientation write FOrientation;
   end;
 
-  TVariantArray = array of OleVariant;
-
-{$IFDEF USE_EwbTools}
-  TSearchResult = (srNotFound, srEndOf, srFound);
-  TSearchResults = set of TSearchResult;
-  TSearchDirections = (sdDown, sdUp);
-{$ENDIF}
-
   {============================================================================}
   // TEmbeddedWB
   {============================================================================}
@@ -196,59 +201,62 @@ type
   private
     FAbout: string;
     FBindInfo: IInternetBindInfo;
-    FDisableErrors: TDisableErrors;
-    FDisabledPopupMenuItems: TIEPopupMenuItems;
-    FDialogBoxes: TDialogBoxes;
     FDestroying: Boolean;
+    FDialogBoxes: TDialogBoxes;
+    FDisabledPopupMenuItems: TIEPopupMenuItems;
+    FDisableErrors: TDisableErrors;
     FEnableMessageHandler: Boolean;
-    FHostNS: string;
     FHostCSS: string;
+    FHostNS: string;
     FHTMLChar: Char;
     FHTMLCode: TStringList;
     FModified: Boolean;
-    FSilent: Boolean;
     FName: string;
-    FProtSink: IInternetProtocolSink;
     FPrintOptions: TPrintOptions;
+    FProtSink: IInternetProtocolSink;
     FProxySettings: TProxySettings;
+    FResizing: Boolean;
     FRuntimeMeasure: TMeasure;
     FSearchText: string;
+    FSilent: Boolean;
     FTextRange: IHTMLTxtRange;
     FUserAgent: string;
-    FUserAgentReg: string;
     FUserAgentInt: string;
     FUserAgentMode: TUserAgentMode;
+    FUserAgentReg: string;
     FUserAgentRegSet: Boolean;
     FVisible: Boolean;
     FVisualEffects: TVisualEffects;
-    FResizing: Boolean;
+    FStopped: Boolean;
     FWinXPSP2orLater: Boolean;
     FWndProcSubClassed: Boolean;
 
-    FOnShowDialog: TShowDialogEvent;
     FOnBusyWait: TOnBusyWait;
-    FOnCloseQuery: TCloseQueryEvent;
-    FOnMessage: TMsgEvent;
     FOnClick: TMouseEvent;
-//    FOnDblClick: TMouseEvent;
-    FOnVisible: TEWBOnVisible;
+    FOnCloseQuery: TCloseQueryEvent;
     FOnKeyDown: TKeyEventEx;
     FOnKeyUp: TKeyEventEx;
+    FOnMessage: TMsgEvent;
+    FOnShowDialog: TShowDialogEvent;
+    FOnVisible: TEWBOnVisible;
+    FOnHTMLCodeChange: THTMLCodeChangeEvent;
+
+    {=ParentFormWndProc =============================}
 
 {$IFDEF Enable_HookParentFormWndProc}
-    {=ParentFormWndProc =============================}
     FOldWindowProc: TWndMethod;
     FParentForm: TForm;
 {$ENDIF}
 
-{$IFDEF Enable_MouseEnterLeaveEvents}
     {=Mouse Events ==================================}
+{$IFDEF Enable_MouseEnterLeaveEvents}
     FOnMouseEnter: TNotifyEvent;
     FOnMouseLeave: TNotifyEvent;
 {$ENDIF}
 
+    {=SubClass ChildWindows =========================}
+
 {$IFDEF Enable_SubClassChildWindows}
-    {=ChildHook =====================================}
     FDefInetExplorerServerProc: Pointer;
     FDefShellObjViewProc: Pointer;
     FDefSysListViewObjProc: Pointer;
@@ -261,55 +269,56 @@ type
 {$ENDIF}
 
 {$IFDEF Enable_EwbMSHTMLEvents}
-    {=MSHTMLEvents ==================================}
     FSinkComponent: TMSHTMLHTMLDocumentEvents;
 {$ENDIF}
 
 {$IFDEF USE_EwbTools}
     FLastSearchDirection: TSearchDirections;
 {$ENDIF}
+
 {$IFDEF DELPHI12_UP}
     FEncoding: TEncoding;
 {$ENDIF}
     {=UserAgent stuff ===============================}
-    procedure UpdateUserAgent;
+    function OnSetUserAgentEvent(var UserAgent: string): HRESULT;
+    procedure RestoreUserAgentReg;
     procedure SetUserAgent(const Value: string);
     procedure SetUserAgentInt;
-    procedure SetUserAgentReg;
-    procedure RestoreUserAgentReg;
     procedure SetUserAgentMode(Value: TUserAgentMode);
-    function OnSetUserAgentEvent(var UserAgent: string): HRESULT;
+    procedure SetUserAgentReg;
+    procedure UpdateUserAgent;
 
     {=Misc ==========================================}
+    function GetDesginMode: Boolean;
     function GetModified: Boolean;
     function GetPrintValues: Boolean;
-    procedure SetAbout(Value: string);
-    procedure SetDesginMode(Value: Boolean);
-    function GetDesginMode: Boolean;
-    procedure SetHTMLCode(value: TStringList);
-    procedure SetModified(Value: Boolean);
     procedure HTMLCodeChanged(Sender: TObject);
     procedure OnHookChildWindows(Sender: TObject);
-
+    procedure SetAbout(Value: string);
+    procedure SetDesginMode(Value: Boolean);
+    procedure SetHTMLCode(Value: TStringList);
+    procedure SetModified(Value: Boolean);
+    procedure SetActiveControl(ParentForm: TCustomForm = nil);
     {=Events ========================================}
+    procedure CMVisibleChanged(var MSG: TMessage); message CM_VISIBLECHANGED;
     procedure WMSetWBFocus(var Msg: TMessage); message WM_SETWBFOCUS;
     procedure WMSetFocus(var Message: TWMSetFocus); message WM_SETFOCUS;
-    procedure CMVisibleChanged(var MSG: TMessage); message CM_VISIBLECHANGED;
 
 {$IFDEF Enable_MouseEnterLeaveEvents}
     procedure HandleMouseEnterLeaveEvents(var msg: TMessage);
 {$ENDIF}
+
 {$IFDEF Enable_HookParentFormWndProc}
-    procedure HandleDialogBoxes(var AMsg: Messages.TMessage);
+    procedure HandleDialogBoxes(var AMsg: TMessage);
 {$ENDIF}
 
 {$IFDEF USE_EwbDDE}
-    procedure DDEWndProc(var AMsg: Messages.TMessage);
+    procedure DDEWndProc(var AMsg: TMessage);
 {$ENDIF}
 
 {$IFDEF Enable_HookParentFormWndProc}
     procedure UnHookParentFormWndProc;
-    procedure FormWndProc(var AMsg: Messages.TMessage);
+    procedure FormWndProc(var AMsg: TMessage);
     procedure HookParentFormWndProc;
 {$ENDIF}
 
@@ -330,16 +339,16 @@ type
     {IDocHostUIHandler Interface}
     function GetHostInfo(var pInfo: TDOCHOSTUIINFO): HRESULT; stdcall;
     {IInternetProtocolRoot Interface}
-    function Abort(hrReason: HResult; dwOptions: DWORD): HResult; stdcall;
-    function Continue(const ProtocolData: TProtocolData): HResult; stdcall;
-    function Resume: HResult; stdcall;
+    function Abort(hrReason: HRESULT; dwOptions: DWORD): HRESULT; stdcall;
+    function Continue(const ProtocolData: TProtocolData): HRESULT; stdcall;
+    function Resume: HRESULT; stdcall;
     function Start(szUrl: PWideChar; OIProtSink: IInternetProtocolSink;
-      OIBindInfo: IInternetBindInfo; grfPI, dwReserved: DWORD): HResult; stdcall;
-    function Suspend: HResult; stdcall;
-    function Terminate(dwOptions: DWORD): HResult; stdcall;
+      OIBindInfo: IInternetBindInfo; grfPI, dwReserved: DWORD): HRESULT; stdcall;
+    function Suspend: HRESULT; stdcall;
+    function Terminate(dwOptions: DWORD): HRESULT; stdcall;
     {IInternetProtocol Interface}
     function Read(pv: Pointer; cb: ULONG; out cbRead: ULONG): HResult; stdcall;
-    function Seek(dlibMove: LARGE_INTEGER; dwOrigin: DWORD; out libNewPosition: ULARGE_INTEGER): HResult; stdcall;
+    function Seek(dlibMove: LARGE_INTEGER; dwOrigin: DWORD; out libNewPosition: ULARGE_INTEGER): HRESULT; stdcall;
     function LockRequest(dwOptions: DWORD): HRESULT; stdcall;
     function UnlockRequest: HRESULT; stdcall;
 {$IFDEF USE_EwbDDE}
@@ -370,7 +379,7 @@ type
     ZoneManager: IInternetZoneManager;
     FResizable: Boolean;
     property Name: string read GetName write SetName;
-    property HWND: integer read GetHWND;
+    property HWND: Integer read GetHWND;
     property Parent: TWinControl read GetParent write SetParent;
     property Resizable: Boolean read FResizable write FResizable default True;
 {$IFDEF DELPHI12_UP}
@@ -379,6 +388,7 @@ type
     constructor Create(Owner: TComponent); override;
     destructor Destroy; override;
     procedure SetFocus; override;
+    function Focused: Boolean; override;
 
     function LoadFrameFromStream(FrameNo: Integer; AStream: TStream): HRESULT;
     function LoadFrameFromStrings(FrameNo: Word; const AStrings: TStrings): HRESULT;
@@ -386,8 +396,8 @@ type
     function LoadFromStrings(const AStrings: TStrings): HRESULT; overload;
     function LoadFromStrings(const AStrings: TStrings; AddHtmlTags: Boolean): HRESULT; overload;
     function LoadFromString(const St: string): HRESULT; // by M.Grusha
-    procedure LoadFromImage(Image: TImage);
     function LoadFromFile(const FileName: string): HRESULT; // by M.Grusha
+    procedure LoadFromImage(Image: TImage);
 {$IFDEF DELPHI6_UP}
     function LoadFromWideString(const WideSt: WideString): HRESULT;
 {$ENDIF}
@@ -401,10 +411,10 @@ type
     function DocumentLoaded: Boolean; overload;
     function DocumentLoaded(out Doc2: IHTMLDocument2): Boolean; overload;
     procedure AssignEmptyDocument(bWait: Boolean = False);
-    function GetDocument: IHtmlDocument2;
+    function GetDocument: IHTMLDocument2;
     function GetFrame(FrameNo: Word): IWebbrowser2;
     procedure RefreshFrame(FrameNo: Word);
-    function GetFrameFromDocument(SourceDoc: IHtmlDocument2; FrameNo: Integer): IWebBrowser2;
+    function GetFrameFromDocument(SourceDoc: IHTMLDocument2; FrameNo: Integer): IWebBrowser2;
     function GetActiveFrame(): IHTMLDocument2; overload;
     function GetActiveFrame(Doc: IHTMLDocument2): IHTMLDocument2; overload;
     function GetActiveElement(Doc: IHTMLDocument2 = nil): IHTMLElement;
@@ -417,25 +427,24 @@ type
     function PasteSpecial: Boolean;
     function SelectAll: Boolean;
     function ClearSelection: Boolean;
-    procedure Stop;
     function Undo: Boolean;
     function Redo: Boolean;
     function Delete: Boolean;
 
-    function NavigateWait(const URL: WideString; TimeOut: LongWord = 0): Boolean;
-    function Go(Url: string; TimeOut: LongWord = 0): Boolean;
+    procedure Stop;
     procedure GoBack;
     procedure GoForward;
+    function Go(Url: string; TimeOut: LongWord = 0): Boolean;
+    function NavigateWait(const URL: WideString; TimeOut: LongWord = 0): Boolean;
     procedure NavigateFolder(CSIDL: Integer);
     procedure NavigatePidl(pidl: PItemIdlist);
-    function NavigateToFrame(FrameList: string): IHtmlDocument2;
-
+    function NavigateToFrame(FrameList: string): IHTMLDocument2;
     function Wait(TimeOut: Longword = 0): Boolean;
-    function WaitWhileBusy(TimeOut: Longword = 0): Boolean; // Wait2
+    function WaitWhileBusy(TimeOut: Longword = 0): Boolean;
 
+    class function GetIEHandle(WebBrowser: TEmbeddedWB; ClassName: string): HWND;
     function DownloadFile(SourceFile, DestFile: string): Boolean;
     function GetIEHomePage: string;
-    class function GetIEHandle(WebBrowser: TEmbeddedWB; ClassName: string): HWND;
     function VariantIsObject(const value: OleVariant): Boolean;
     function IsCommandEnabled(sCmdId: WideString): Boolean;
     function QueryCommandValue(sCmdId: WideString): OleVariant;
@@ -456,9 +465,9 @@ type
     function DocumentSourceText: string; // By Bitmaker
     function EncodeUrl(const InputStr: string; const bQueryStr: Boolean): string;
     function ExecScriptEx(MethodName: string; ParamValues: array of const): OleVariant;
-    function FillForm(FieldName: string; Value: string): Boolean;
+    function FillForm(FieldName: string; Value: string; ElementNr: Integer = -1): Boolean;
     function FrameCount: LongInt;
-    function FrameCountFromDocument(SourceDoc: IHtmlDocument2): Integer;
+    function FrameCountFromDocument(SourceDoc: IHTMLDocument2): Integer;
     function GetBmpFromBrowser(FileName: string): Boolean;
     function GetCachedFileFromURL(ItemUrl: string): string;
     function GetCookie: string;
@@ -541,8 +550,12 @@ type
     procedure ScrollToIDEx(ID: string); // by M.Grusha
     procedure ScrollToPosition(X, Y: Integer);
     procedure ScrollToTop;
-    procedure SearchAndHighlight(const ACaption, APrompt: string; aText: string = '';
-      ShowInputQuery: Boolean = False); // by M.Grusha
+    procedure SearchAndHighlight(AText: string; const ACaption, APrompt: string;
+      Flags: TSearchFlags = []; cbackColor: string = 'yellow'; cForeColor: string = '';
+      ScrollIntoView: TScrollIntoView = sivNoScroll); overload;
+    procedure SearchAndHighlight(aText: string; Flags: TSearchFlags = [];
+      cbackColor: string = 'yellow'; cForeColor: string = '';
+      ScrollIntoView: TScrollIntoView = sivNoScroll); overload;
     procedure SendPageInMailAsAttachment(aOwner: TComponent; FileName, Subject, Body: string);
     procedure SendURLInMail;
     procedure SetNewHomePage(HomePage: string);
@@ -586,13 +599,12 @@ type
     property OnKeyDown: TKeyEventEx read FOnKeyDown write FOnKeyDown;
     property OnKeyUp: TKeyEventEx read FOnKeyUp write FOnKeyUp;
     property OnClick: TMouseEvent read FOnClick write FOnClick;
-//    property OnDblClick: TMouseEvent read FOnDblClick write FOnDblClick;
+    property OnHTMLCodeChange: THTMLCodeChangeEvent read FOnHTMLCodeChange write FOnHTMLCodeChange;
 {$IFDEF Enable_MouseEnterLeaveEvents}
     property OnMouseLeave: TNotifyEvent read FOnMouseLeave write FOnMouseLeave;
     property OnMouseEnter: TNotifyEvent read FOnMouseEnter write FOnMouseEnter;
 {$ENDIF}
   end;
-
 
 implementation
 
@@ -600,16 +612,14 @@ uses
 {$IFDEF USE_EwbTools}
   EWBTools,
 {$ENDIF}
-//*****************************
 {$IFDEF USE_EwbDDE}
   EwbDDE,
 {$ENDIF}
-//*****************************
-
-  Registry, Dialogs, CommCtrl, ComObj, ShellAPI, OleServer, IEConst, WinInet;
+  Registry, CommCtrl, ComObj, ShellAPI, OleServer, IEConst, WinInet;
 
 var
-//Boolean variables that must be global to restore settings for MDI cases / multiple EWB instances
+  // Boolean variables that must be global to restore settings for MDI cases
+  // or multiple EWB instances
 {$IFDEF USE_EwbDDE}
   HtmlFileApp, HtmlFileTopic: string; //All DDE variables
   FHtmlCommand, bDontRespond: Boolean;
@@ -630,8 +640,7 @@ var
   EwbControl: TEwbControl;
 {$ENDIF}
 
-
-//=== Print Options-Persistent =================================================
+  //=== Print Options-Persistent =================================================
 
 procedure TPrintOptions.SetHTMLHeader(const Value: Tstrings);
 begin
@@ -642,10 +651,10 @@ end;
 
 procedure TDisableErrors.SetfpExceptions(const Value: Boolean);
 begin
-  if Value then
-    Set8087CW(wSaved8087CW)
+  if not Value then
+    Set8087CW($133F)
   else
-    Set8087CW($133F);
+    Set8087CW(wSaved8087CW);
   FfpExceptions := Value;
 end;
 
@@ -681,8 +690,7 @@ begin
   try
     IpStream := doc as IPersistStreamInit;
     if Assigned(IpStream) then
-      if Succeeded(IpStream.save(TStreamAdapter.Create(AStream), True))
-        then
+      if Succeeded(IpStream.Save(TStreamAdapter.Create(AStream), True)) then
       begin
         AStream.Seek(0, 0);
         AStrings.LoadFromStream(AStream);
@@ -885,8 +893,7 @@ var
   szTmp: string;
 begin
   ulo := nil;
-  if UnpackDDElParam(WM_DDE_EXECUTE, ilParam, uLo, @hgMem)
-    then
+  if UnpackDDElParam(WM_DDE_EXECUTE, ilParam, uLo, @hgMem) then
   begin
     szCommand := GlobalLock(hgmem);
     ZeroMemory(@Ack, SizeOf(ddeAck));
@@ -911,8 +918,9 @@ begin
             begin
               if (szFolder <> '') then
                 Go(szFolder)
-              else
-                if Assigned(pidl) then NavigatePidl(pidl);
+              else if Assigned(pidl) then
+                NavigatePidl(pidl);
+
               DisposePidl(pidl);
               Ack.flags := 1;
             end;
@@ -945,8 +953,7 @@ begin
               bDontRespond := True;
               ZeroMemory(@sei, SizeOf(SHELLEXECUTEINFO));
               sei.cbSize := SizeOf(SHELLEXECUTEINFO);
-              if (szFolder <> '')
-                then
+              if (szFolder <> '') then
               begin
                 sei.fMask := 0;
                 sei.lpFile := PChar(szFolder);
@@ -986,7 +993,8 @@ begin
         DDEInitiate(WParam, LParam)
       except
       end;
-    end else
+    end
+    else
       Result := DefWindowProc(DDEHWND, Msg, WParam, LParam);
 end;
 {$ENDIF} // {$IFDEF USE_EwbDDE}
@@ -1022,22 +1030,22 @@ end;
 
 procedure TEmbeddedWB.HookChildWindows;
 begin
-  if csDesigning in ComponentState then Exit;
-  if not Assigned(Self) then Exit;
+  if (csDesigning in ComponentState) or Forms.Application.Terminated then
+    Exit;
+  if not Assigned(Self) then
+    Exit;
 
-  // SysListView32
-  if FSysListViewHandle = 0 then
+  if FSysListViewHandle = 0 then // SysListView32
   begin
     FSysListViewHandle := GetIEWin('SysListView32');
     if FSysListViewHandle <> 0 then
     begin
       FSysListViewObjInstance := {$IFDEF DELPHI6_UP}Classes.{$ENDIF}MakeObjectInstance(SysListViewWndProc);
       FDefSysListViewObjProc := Pointer(GetWindowLong(FSysListViewHandle, GWL_WNDPROC));
-      SetWindowLong(FSysListViewHandle, GWL_WNDPROC, Longint(FSysListViewObjInstance));
+      SetWindowLongW(FSysListViewHandle, GWL_WNDPROC, Longint(FSysListViewObjInstance));
       Exit;
     end;
   end;
-
   // Hook child windows to catch WM_DESTROY messages
   if (FShellDocObjViewHandle = 0) and (FInetExplorerServerHandle = 0) then
   begin
@@ -1049,30 +1057,20 @@ begin
       // ShellDocObj
       FInetExplorerServerHandle := Windows.GetWindow(FShellDocObjViewHandle, GW_CHILD);
       FDefShellObjViewProc := Pointer(GetWindowLong(FShellDocObjViewHandle, GWL_WNDPROC));
-      SetWindowLong(FShellDocObjViewHandle, GWL_WNDPROC, Longint(FShellDocObjInstance));
+      SetWindowLongW(FShellDocObjViewHandle, GWL_WNDPROC, Longint(FShellDocObjInstance));
       // Internet Explorer Server
       FDefInetExplorerServerProc := Pointer(GetWindowLong(FInetExplorerServerHandle, GWL_WNDPROC));
-      SetWindowLong(FInetExplorerServerHandle, GWL_WNDPROC, Longint(FInetExplorerServerInstance));
+      SetWindowLongW(FInetExplorerServerHandle, GWL_WNDPROC, Longint(FInetExplorerServerInstance));
     end;
   end;
 end;
 
 procedure TEmbeddedWB.SysListViewWndProc(var Msg: TMessage);
-var
-  ParentForm: TCustomForm;
 begin
   with Msg do
     Result := CallWindowProcW(FDefSysListViewObjProc, FSysListViewHandle, Msg, WParam, LParam);
   case Msg.Msg of
-    WM_SETFOCUS:
-      begin
-        ParentForm := GetParentForm(Self);
-        if Assigned(ParentForm) then
-        begin
-          if Self.CanFocus then
-            ParentForm.ActiveControl := Self;
-        end;
-      end;
+    WM_SETFOCUS: SetActiveControl;
     WM_DESTROY: UnHookChildWindows;
   end;
 end;
@@ -1080,48 +1078,25 @@ end;
 procedure TEmbeddedWB.InetExplorerServerWndProc(var Msg: TMessage);
 type
   PWMKey = ^TWMKey;
-var
-  ParentForm: TCustomForm;
 begin
   with Msg do
     Result := CallWindowProcW(FDefInetExplorerServerProc, FInetExplorerServerHandle, Msg, WParam, LParam);
   case Msg.Msg of
     WM_SETFOCUS:
-      begin
-        // Catching this message allows us to set the Active control to the
-        // WebBrowser itself which keeps VCL in sync with the real active control
-        // which makes things like tabbing work correctly.
-        ParentForm := GetParentForm(Self);
-        if Assigned(ParentForm) then
-          if Self.CanFocus then
-          begin
-            ParentForm.ActiveControl := Self;
-            Self.SetFocusToDoc;
-          end;
-      end;
+      // Catching this message allows us to set the Active control to the
+      // WebBrowser itself which keeps VCL in sync with the real active control
+      // which makes things like tabbing work correctly.
+      SetActiveControl;
     WM_DESTROY: UnHookChildWindows;
   end;
 end;
 
 procedure TEmbeddedWB.ShellDocObjWndProc(var Msg: TMessage);
-var
-  ParentForm: TCustomForm;
 begin
   with Msg do
     Result := CallWindowProcW(FDefShellObjViewProc, FShellDocObjViewHandle, Msg, WParam, LParam);
   case Msg.Msg of
-    WM_SETFOCUS:
-      begin
-        ParentForm := GetParentForm(Self);
-        if Assigned(ParentForm) then
-        begin
-          if Self.CanFocus then
-          begin
-            ParentForm.ActiveControl := Self;
-            Self.SetFocusToDoc;
-          end;
-        end;
-      end;
+    WM_SETFOCUS: SetActiveControl;
     WM_DESTROY: UnHookChildWindows;
   end;
 end;
@@ -1130,7 +1105,7 @@ procedure TEmbeddedWB.UnHookChildWindows;
 begin
   if FSysListViewHandle <> 0 then
   begin
-    SetWindowLong(FSysListViewHandle, GWL_WNDPROC, Integer(FDefSysListViewObjProc));
+    SetWindowLongW(FSysListViewHandle, GWL_WNDPROC, Integer(FDefSysListViewObjProc));
 {$IFDEF DELPHI6_UP}Classes.{$ENDIF}FreeObjectInstance(FSysListViewObjInstance);
     FSysListViewHandle := 0;
     FSysListViewObjInstance := nil;
@@ -1138,7 +1113,7 @@ begin
 
   if FShellDocObjViewHandle <> 0 then
   begin
-    SetWindowLong(FShellDocObjViewHandle, GWL_WNDPROC, Integer(FDefShellObjViewProc));
+    SetWindowLongW(FShellDocObjViewHandle, GWL_WNDPROC, Integer(FDefShellObjViewProc));
 {$IFDEF DELPHI6_UP}Classes.{$ENDIF}FreeObjectInstance(FShellDocObjInstance);
     FShellDocObjViewHandle := 0;
     FShellDocObjInstance := nil;
@@ -1146,13 +1121,12 @@ begin
 
   if FInetExplorerServerHandle <> 0 then
   begin
-    SetWindowLong(FInetExplorerServerHandle, GWL_WNDPROC, Integer(FDefInetExplorerServerProc));
+    SetWindowLongW(FInetExplorerServerHandle, GWL_WNDPROC, Integer(FDefInetExplorerServerProc));
 {$IFDEF DELPHI6_UP}Classes.{$ENDIF}FreeObjectInstance(FInetExplorerServerInstance);
     FInetExplorerServerHandle := 0;
     FInetExplorerServerInstance := nil;
   end;
 end;
-
 
 {$ENDIF} // Enable_SubClassChildWindows
 
@@ -1164,6 +1138,20 @@ begin
 {$ENDIF};
 end;
 
+procedure TEmbeddedWB.SetActiveControl(ParentForm: TCustomForm = nil);
+begin
+  if ParentForm = nil then
+    ParentForm := GetParentForm(Self);
+  if Assigned(ParentForm) then
+  begin
+    if Self.CanFocus then
+    begin
+      ParentForm.ActiveControl := Self;
+      Self.SetFocusToDoc;
+    end;
+  end;
+end;
+
 procedure TEmbeddedWB.WMSetWBFocus(var Msg: TMessage);
 var
   ParentForm: TCustomForm;
@@ -1171,19 +1159,18 @@ begin
   ParentForm := GetParentForm(Self);
   if Assigned(ParentForm) then
     if ParentForm.ActiveControl is TEmbeddedWB then
-    begin
-      if Self.CanFocus then
-      begin
-        ParentForm.ActiveControl := Self;
-        SetFocusToDoc;
-      end;
-    end;
+      SetActiveControl(ParentForm);
 end;
 
 procedure TEmbeddedWB.SetFocus;
 begin
   if Self.CanFocus then
     inherited;
+end;
+
+function TEmbeddedWB.Focused: Boolean;
+begin
+  Result := IsChild(Self.Handle, GetFocus);
 end;
 
 procedure TEmbeddedWB.WMSetFocus(var Message: TWMSetFocus);
@@ -1204,14 +1191,17 @@ begin
   if Msg.Active = 0 then
   begin
     PopHandle := Msg.ActiveWindow;
-    DlgClss := GetWinClass(PopHandle);
     FillChar(WI, SizeOf(WI), 0);
     if PopHandle <> 0 then
     begin
       WI.dwStyle := Abs(GetWindowLong(PopHandle, GWL_STYLE));
       WI.dwExStyle := Abs(GetWindowLong(PopHandle, GWL_EXSTYLE));
     end;
-    if (DlgClss = '#32770') or (DlgClss = 'Internet Explorer_TridentDlgFrame') then
+
+    DlgClss := GetWinClass(PopHandle);
+    if (DlgClss = 'Internet Explorer_TridentDlgFrame') or ((DlgClss = '#32770') and
+      ((GetWinClass(Windows.GetParent(PopHandle)) <> 'TApplication') and
+      (FindControl(Windows.GetParent(PopHandle)) = nil))) then
     begin
       DlgCaption := GetWinText(PopHandle);
       if (PopHandle <> 0) and Assigned(FOnShowDialog) then
@@ -1226,8 +1216,6 @@ begin
       begin
         DlgCaption := StringReplace(DlgCaption, 'Microsoft ', '', []);
         DlgCaption := StringReplace(DlgCaption, 'Internet Explorer', FDialogBoxes.FNewCaption, []);
-        { if AnsiPos(FDialogBoxes.FNewCaption, DlgName) = 0 then
-        DlgName := FDialogBoxes.FNewCaption + ':  ' + DlgName; }
         SetWindowText(PopHandle, PChar(DlgCaption));
       end;
 
@@ -1255,7 +1243,7 @@ begin
           bInvokingPageSetup := False;
           if PrintingWithOptions then
           begin
-            SetWindowPos(0, 0, -600, 0, 0, 0, 0); //SetWindowPos(Wnd, 0, -600, 0, 0, 0, 0);
+            SetWindowPos(0, 0, -4400, 0, 0, 0, 0); //SetWindowPos(Wnd, 0, -600, 0, 0, 0, 0);
             PrintingWithOptions := False;
           end;
           if FPrintOptions.FOrientation = poPortrait then
@@ -1285,18 +1273,17 @@ begin
   if AMsg.Msg = WM_ACTIVATE then
   begin
     HandleDialogBoxes(AMsg);
-{
-if ((AMsg.WParamLo and WA_ACTIVE) = WA_ACTIVE) or
-   ((AMsg.WParamLo and WA_CLICKACTIVE) = WA_CLICKACTIVE) then
-    begin
-    s := 'FormWndProc ' +'msg.Msg'+ Inttostr(Amsg.Msg) +'msg.LParam'+ Inttostr(Amsg.LParam)
-    +'msg.WParam '+ Inttostr(Amsg.WParam);
-    OutputDebugString(PChar(s));
-    end;
-}
+    {
+    if ((AMsg.WParamLo and WA_ACTIVE) = WA_ACTIVE) or
+       ((AMsg.WParamLo and WA_CLICKACTIVE) = WA_CLICKACTIVE) then
+        begin
+        s := 'FormWndProc ' +'msg.Msg'+ Inttostr(Amsg.Msg) +'msg.LParam'+ Inttostr(Amsg.LParam)
+        +'msg.WParam '+ Inttostr(Amsg.WParam);
+        OutputDebugString(PChar(s));
+        end;
+    }
   end;
-  if AMsg.Msg <> 45062 then // http://tinyurl.com/WndProc45062
-    FOldWindowProc(AMsg);
+  FOldWindowProc(AMsg);
 end;
 
 procedure TEmbeddedWB.HookParentFormWndProc;
@@ -1331,8 +1318,7 @@ end;
 procedure TEmbeddedWB.HandleMouseEnterLeaveEvents(var msg: TMessage);
 begin
   case msg.Msg of
-  // Doesn't work in D2005/D2007/D2009
-  // To do: find a solution for it.
+    // Doesn't work in D2005+
     CM_MOUSELEAVE:
       if Assigned(FOnMouseLeave) then
         FOnMouseLeave(Self);
@@ -1347,8 +1333,8 @@ function SysListView32MoveCursor(EmbeddedWB: TEmbeddedWB; Key: Word; Shift: TShi
 // Make VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT work in SysListView32
 // To-do: make HOME, ENDE, PG UP, PG DOWN work
 var
-  iNextItem, iFocusedItem:integer;
-  ListView : hWnd;
+  iNextItem, iFocusedItem: Integer;
+  ListView: hWnd;
   Flags: Word;
 begin
   ListView := EmbeddedWB.GetIEWin('SysListView32');
@@ -1360,18 +1346,19 @@ begin
       VK_DOWN: Flags := LVNI_BELOW;
       VK_LEFT: Flags := LVNI_TOLEFT;
       VK_RIGHT: Flags := LVNI_TORIGHT;
-    else begin
-      Result := False;
-      Exit;
+    else
+      begin
+        Result := False;
+        Exit;
+      end;
     end;
-    end;
-    iFocusedItem := ListView_GetNextItem(ListView, -1,  LVNI_ALL or LVNI_FOCUSED);
+    iFocusedItem := ListView_GetNextItem(ListView, -1, LVNI_ALL or LVNI_FOCUSED);
     iNextItem := SendMessage(ListView, LVM_GETNEXTITEM, iFocusedItem, MakeLong(Flags, 0));
     if iNextItem <> -1 then
     begin
       if not (ssShift in Shift) then
-      // unselect focused items if Shift is not pressed.
-      // still not perfect (like the explorer's behaviour) but works fine so far.
+        // unselect focused items if Shift is not pressed.
+        // still not perfect (like the explorer's behaviour) but works fine so far.
       begin
         ListView_SetItemState(ListView, iFocusedItem, 0, LVIS_SELECTED);
         ListView_SetItemState(ListView, iFocusedItem, 0, LVIS_FOCUSED);
@@ -1379,12 +1366,12 @@ begin
       ListView_SetItemState(ListView, iNextItem, LVIS_SELECTED, LVIS_SELECTED);
       ListView_SetItemState(ListView, iNextItem, LVIS_FOCUSED, LVIS_FOCUSED);
       ListView_EnsureVisible(ListView, iNextItem, False);
-      SendMessage(ListView, WM_SETFOCUS , 0, 0);
+      SendMessage(ListView, WM_SETFOCUS, 0, 0);
     end;
-  end else
+  end
+  else
     Result := False;
 end;
-
 
 procedure TEmbeddedWB.WndProc(var AMsg: TMessage);
 var
@@ -1410,7 +1397,7 @@ begin
   // Handle OnKeyDown / OnKeyUp Messages
   with AMsg do
     case Msg of
-      CN_BASE + WM_KEYDOWN:
+      CN_BASE + WM_KEYDOWN, CN_BASE + WM_SYSKEYDOWN:
         begin
           if SysListView32MoveCursor(Self, TWMKeyUp(AMsg).CharCode, KeyDataToShiftState(TWMKeyUp(AMsg).KeyData)) then
           begin
@@ -1419,20 +1406,20 @@ begin
           end;
           if Assigned(FOnKeyDown) then
           begin
-            FOnKeyDown(Self, TWMKeyUp(AMsg).CharCode, (TWMKeyUp(AMsg).KeyData shr 16) and $FF,
-              KeyDataToShiftState(TWMKeyUp(AMsg).KeyData));
-            if (TWMKeyUp(AMsg).CharCode = 0) then
+            FOnKeyDown(Self, TWMKeyDown(AMsg).CharCode, (TWMKeyDown(AMsg).KeyData shr 16) and $FF,
+              KeyDataToShiftState(TWMKeyDown(AMsg).KeyData));
+            if (TWMKeyDown(AMsg).CharCode = 0) then
             begin
               bProcessMessage := False;
               AMsg.Result := 1;
             end;
           end;
         end;
-      CN_BASE + WM_KEYUP:
+      CN_BASE + WM_KEYUP, CN_BASE + WM_SYSKEYUP:
         if Assigned(FOnKeyUp) then
         begin
-          FOnKeyUp(Self, TWMKeyDown(AMsg).CharCode, (TWMKeyUp(AMsg).KeyData shr 16) and $FF,
-            KeyDataToShiftState(TWMKeyDown(AMsg).KeyData));
+          FOnKeyUp(Self, TWMKeyUp(AMsg).CharCode, (TWMKeyUp(AMsg).KeyData shr 16) and $FF,
+            KeyDataToShiftState(TWMKeyUp(AMsg).KeyData));
           if TWMKeyUp(AMsg).CharCode = 0 then
           begin
             bProcessMessage := False;
@@ -1449,14 +1436,14 @@ begin
 
   // Make VK_RETURN work in TextAreas etc.
   if FEnableMessageHandler and (AMsg.Msg = CN_BASE + WM_KEYDOWN) and
-    (AMsg.WParam = VK_RETURN) then AMsg.Result := 0;
+    (AMsg.WParam = VK_RETURN) then
+    AMsg.Result := 0;
 
   // Our own OnMessage Handler
   if Assigned(FOnMessage) then
   begin
-    bHandled := Boolean(AMsg.Result);
+    bHandled := False; // not used but don't break the interface
     FOnMessage(Self, AMsg, bHandled);
-    AMsg.Result := Integer(bHandled);
   end;
 
   // Handle other messges
@@ -1542,7 +1529,8 @@ begin
     Result := GetIEWin('Internet Explorer_Server');
     if not IsWindow(Result) then
       Result := GetIEWin('SysListView32')
-  end else
+  end
+  else
     Result := 0;
 end;
 
@@ -1561,7 +1549,7 @@ end;
 
 procedure TEmbeddedWB.SetSilent(Value: Boolean);
 begin
- // FSilent := Value;
+  // FSilent := Value;
   SetWordBoolProp(551, FSilent);
 end;
 
@@ -1601,7 +1589,7 @@ end;
 
 procedure TEmbeddedWB.SetParent(Control: TWinControl);
 begin
-//  Windows.SetParent(Self.Handle, Control.Handle)
+  //  Windows.SetParent(Self.Handle, Control.Handle)
   TWinControl(Self).Parent := Control;
 end;
 
@@ -1633,28 +1621,42 @@ end;
 procedure TEmbeddedWB.HTMLCodeChanged(Sender: TObject);
 var
   Protocol, SURL: string;
+  bLoad, bHandled: Boolean;
 begin
-  if (csDesigning in ComponentState) then Exit;
+  if (csDesigning in ComponentState) then
+    Exit;
   if HTMLCode.Count = 1 then
   begin
+    bLoad := False;
     Protocol := LowerCase(System.Copy(HTMLCode[0], 1, 4));
     if (Protocol = 'http') or (Protocol = 'www.') or (Protocol = 'ftp:') or (Protocol = 'file') or
       (LowerCase(System.Copy(HTMLCode[0], 1, 6)) = 'about:') then
     begin
       SURL := HTMLCode[0];
       Go(SURL);
-    end else
-      LoadFromStrings(HTMLCode);
-  end else
-    LoadFromStrings(HTMLCode);
+    end
+    else
+      bLoad := True;
+  end
+  else
+    bLoad := True;
+  if bLoad then
+  begin
+    bHandled := False;
+    if Assigned(FOnHTMLCodeChange) then
+      FOnHTMLCodeChange(Self, HTMLCode, bHandled);
+    if not bHandled then
+      if HTMLCode.Count <> 0 then
+        LoadFromStrings(HTMLCode);
+  end;
 end;
 
-function TEmbeddedWB.GetDocument: IHtmlDocument2;
+function TEmbeddedWB.GetDocument: IHTMLDocument2;
 begin
   Wait();
   Result := nil;
   if DocumentLoaded then
-    Result := Self.Document as IHtmlDocument2;
+    Result := Self.ControlInterface.Document as IHTMLDocument2;
 end;
 
 function TEmbeddedWB.GetFrame(FrameNo: Word): IWebbrowser2;
@@ -1677,7 +1679,7 @@ begin
   end;
 end;
 
-function TEmbeddedWB.GetFrameFromDocument(SourceDoc: IHtmlDocument2;
+function TEmbeddedWB.GetFrameFromDocument(SourceDoc: IHTMLDocument2;
   FrameNo: Integer): IWebBrowser2; //By Aladin
 var //by Aladin
   OleContainer: IOleContainer;
@@ -1701,7 +1703,7 @@ function TEmbeddedWB.GetActiveFrame: IHTMLDocument2;
 var
   HtmlDoc2: IHTMLDocument2;
 begin
-  if Supports(Self.document, IHtmlDocument2, HtmlDoc2) then
+  if Supports(Self.Document, IHTMLDocument2, HtmlDoc2) then
     Result := GetActiveFrame(HtmlDoc2);
 end;
 
@@ -1714,7 +1716,7 @@ var
   HtmlDoc2: IHTMLDocument2;
 begin
   Result := nil;
-  if Supports(Doc, IHtmlDocument2, HtmlDoc2) then
+  if Supports(Doc, IHTMLDocument2, HtmlDoc2) then
   begin
     Element := Doc.activeElement;
     if Assigned(Element) then
@@ -1748,7 +1750,7 @@ begin
   if DocumentLoaded then
   begin
     if (bOnlyTopLevel) then
-      doc2 := Self.Document as IHTMLDocument2
+      doc2 := Self.ControlInterface.Document as IHTMLDocument2
     else
       doc2 := Self.GetActiveFrame();
     if Assigned(doc2) and Assigned(doc2.selection) and (doc2.readyState = 'complete') then
@@ -1788,12 +1790,12 @@ end;
 
 function TEmbeddedWB.DocumentLoaded(out Doc2: IHTMLDocument2): Boolean;
 var
-  iDoc: IHtmlDocument2;
+  iDoc: IHTMLDocument2;
 begin
   Result := False;
   if Assigned(Document) then
   begin
-    ControlInterface.Document.QueryInterface(IHtmlDocument2, iDoc);
+    ControlInterface.Document.QueryInterface(IHTMLDocument2, iDoc);
     Doc2 := iDoc;
     Result := Assigned(iDoc);
   end;
@@ -1801,12 +1803,12 @@ end;
 
 function TEmbeddedWB.DocumentLoaded(): Boolean;
 var
-  iDoc: IHtmlDocument2;
+  iDoc: IHTMLDocument2;
 begin
   Result := False;
   if Assigned(Document) then
   begin
-    ControlInterface.Document.QueryInterface(IHtmlDocument2, iDoc);
+    ControlInterface.Document.QueryInterface(IHTMLDocument2, iDoc);
     Result := Assigned(iDoc);
   end;
 end;
@@ -1818,14 +1820,20 @@ var
   S: string;
   Reg: TRegistry;
 
+  {$IFDEF DELPHI7_UP}
+    FS: TFormatSettings;
+  {$ENDIF}
+
   function ReadMargin(key: string): Real;
   begin
     S := Reg.ReadString(key);
     if S = '' then
       S := '0.750000'; // <-- default margin value  by takeru_tk_81
     S := StringReplace(S, ' ', '', [rfReplaceAll]);
-    if DecimalSeparator <> '.' then
-      S := StringReplace(S, '.', DecimalSeparator, []);
+
+    if {$IFDEF DELPHI7_UP}FS.{$ENDIF}DecimalSeparator <> '.' then
+      S := StringReplace(S, '.',{$IFDEF DELPHI7_UP}FS.{$ENDIF}DecimalSeparator ,[]);
+
     if PrintOptions.Measure = mMetric then
       Result := StrToFloat(S) * InchToMetric
     else
@@ -1855,7 +1863,7 @@ begin
       Reg.Free;
     end;
   except
-   // MessageDlg('Error while getting page print values from the registry.', mtError, [mbOK], 0);
+    // MessageDlg('Error while getting page print values from the registry.', mtError, [mbOK], 0);
   end;
 end;
 
@@ -1865,14 +1873,14 @@ var
 begin
   IEHomePage := '';
   with TRegistry.Create do
-  try
-    RootKey := HKEY_CURRENT_USER;
-    OpenKey('\Software\Microsoft\Internet Explorer\Main', False);
-    IEHomePage := ReadString('Start Page');
-    CloseKey;
-  finally
-    Free;
-  end;
+    try
+      RootKey := HKEY_CURRENT_USER;
+      OpenKey('\Software\Microsoft\Internet Explorer\Main', False);
+      IEHomePage := ReadString('Start Page');
+      CloseKey;
+    finally
+      Free;
+    end;
   Result := IEHomePage;
 end;
 
@@ -1898,12 +1906,14 @@ begin
     begin
       if Assigned(FOnBusyWait) then
         FOnBusyWait(Self, StartTime, TimeOut, bCancel);
-      bDoBreak := bCancel or ((TimeOut > 0) and ((GetTickCount - StartTime) > Timeout));
-      if bDoBreak or Forms.Application.Terminated then Break;
+      bDoBreak := FStopped or bCancel or ((TimeOut > 0) and ((GetTickCount - StartTime) > Timeout));
+      if bDoBreak or Forms.Application.Terminated then
+        Break;
       Forms.Application.ProcessMessages;
       Sleep(1);
     end;
   end;
+  FStopped := False;
   Result := bDoBreak = False;
 end;
 
@@ -1920,11 +1930,13 @@ begin
     if Assigned(FOnBusyWait) then
       FOnBusyWait(Self, StartTime, TimeOut, bCancel);
 
-    bDoBreak := bCancel or ((TimeOut > 0) and ((GetTickCount - StartTime) > Timeout));
-    if bDoBreak or Forms.Application.Terminated then Break;
+    bDoBreak := FStopped or bCancel or ((TimeOut > 0) and ((GetTickCount - StartTime) > Timeout));
+    if bDoBreak or Forms.Application.Terminated then
+      Break;
     Forms.Application.ProcessMessages;
     Sleep(1);
   end;
+  FStopped := False;
   Result := bDoBreak = False;
 end;
 
@@ -1946,18 +1958,17 @@ begin
   Result := True;
   if DirectoryExists(Url) then
     Navigate('file:///' + Url)
-  else
-    if (Trim(Url) <> '') then
-    begin
-      ovUrl := Url;
-      ovFlags := 0;
-      ovTargetFrameName := 0;
-      ovPostData := 0;
-      ovHeaders := 0;
-      Navigate2(ovUrl, ovFlags, ovTargetFrameName, ovPostData, ovHeaders);
-      if TimeOut <> 0 then
-        Result := Wait(TimeOut)
-    end;
+  else if (Trim(Url) <> '') then
+  begin
+    ovUrl := Url;
+    ovFlags := 0;
+    ovTargetFrameName := 0;
+    ovPostData := 0;
+    ovHeaders := 0;
+    Navigate2(ovUrl, ovFlags, ovTargetFrameName, ovPostData, ovHeaders);
+    if TimeOut <> 0 then
+      Result := Wait(TimeOut)
+  end;
 end;
 
 function TEmbeddedWB.NavigateWait(const URL: WideString; TimeOut: LongWord = 0): Boolean;
@@ -1997,9 +2008,9 @@ begin
   end;
 end;
 
-function TEmbeddedWB.NavigateToFrame(FrameList: string): IHtmlDocument2;
+function TEmbeddedWB.NavigateToFrame(FrameList: string): IHTMLDocument2;
 var
-  Document: IHtmlDocument2;
+  Document: IHTMLDocument2;
   FramesIndexList: TStringList;
   i: Integer;
 begin
@@ -2012,8 +2023,9 @@ begin
       FramesIndexList.CommaText := FrameList; //move into the last frame
       for i := 0 to FramesIndexList.Count - 1 do
       begin
-        Document := GetFrameFromDocument(Document, StrToInt(FramesIndexList[i])).Document as IHtmlDocument2;
-        if not DocumentLoaded then Exit;
+        Document := GetFrameFromDocument(Document, StrToInt(FramesIndexList[i])).Document as IHTMLDocument2;
+        if not DocumentLoaded then
+          Exit;
       end;
       Result := Document;
     finally
@@ -2045,7 +2057,7 @@ end;
 function TEmbeddedWB.SaveToStrings(AStrings: TStrings): HRESULT;
 begin
   Wait();
-  if Assigned(document) then
+  if Assigned(Document) then
     Result := SaveDocToStrings(Document, AStrings)
   else
     Result := S_FALSE;
@@ -2090,7 +2102,8 @@ function TEmbeddedWB.LoadFromString(const St: string): HRESULT;
 var
   Stream: TStringStream;
 begin
-  if not Assigned(Document) then AssignEmptyDocument;
+  if not Assigned(Document) then
+    AssignEmptyDocument;
   Stream := TStringStream.Create(St{$IFDEF DELPHI12_UP}, FEncoding{$ENDIF});
   try
     OleCheck((Document as IPersistStreamInit).Load(TStreamAdapter.Create(Stream)));
@@ -2106,7 +2119,8 @@ function TEmbeddedWB.LoadFromWideString(const WideSt: WideString): HRESULT;
 var
   Strings: TStringList;
 begin
-  if not Assigned(Document) then AssignEmptyDocument;
+  if not Assigned(Document) then
+    AssignEmptyDocument;
   Strings := TStringList.Create;
   try
     Strings.Text := WideSt;
@@ -2146,7 +2160,8 @@ function TEmbeddedWB.LoadFromStrings(const AStrings: TStrings): HRESULT;
 var
   M: TMemoryStream;
 begin
-  if not Assigned(Document) then AssignEmptyDocument;
+  if not Assigned(Document) then
+    AssignEmptyDocument;
   M := TMemoryStream.Create;
   try
     AStrings.SaveToStream(M{$IFDEF DELPHI12_UP}, FEncoding{$ENDIF});
@@ -2173,7 +2188,8 @@ var
   M: TMemoryStream;
   stn: TStrings;
 begin
-  if not Assigned(Document) then AssignEmptyDocument;
+  if not Assigned(Document) then
+    AssignEmptyDocument;
   M := TMemoryStream.Create;
   try
     if AddHtmlTags and not AnsiStartsStr('<HTML>', UpperCase(AStrings.GetText)) then
@@ -2204,7 +2220,8 @@ end;
 
 function TEmbeddedWB.LoadFromStream(const AStream: TStream): HRESULT;
 begin
-  if not Assigned(Document) then AssignEmptyDocument;
+  if not Assigned(Document) then
+    AssignEmptyDocument;
   AStream.Seek(0, 0);
   Result := (Document as IPersistStreamInit).Load(TStreamAdapter.Create(AStream));
 end;
@@ -2232,7 +2249,7 @@ end;
 
 function TEmbeddedWB.LoadFrameFromStream(FrameNo: Integer; AStream: TStream): HRESULT;
 var
-  iw: IWebbrowser2;
+  iw: IWebBrowser2;
 begin
   Result := S_FALSE;
   iw := GetFrame(frameNo);
@@ -2251,7 +2268,7 @@ end;
 
 function TEmbeddedWB.IsCommandEnabled(sCmdId: WideString): Boolean;
 var
-  HTMLdoc2: IHtmlDocument2;
+  HTMLdoc2: IHTMLDocument2;
 begin
   HTMLdoc2 := doc2;
   if Assigned(HTMLdoc2) then
@@ -2264,7 +2281,7 @@ end;
 
 function TEmbeddedWB.QueryCommandValue(sCmdId: WideString): OleVariant;
 var
-  HTMLdoc2: IHtmlDocument2;
+  HTMLdoc2: IHTMLDocument2;
 begin
   HTMLdoc2 := doc2;
   if Assigned(HTMLdoc2) then
@@ -2272,7 +2289,6 @@ begin
   else
     Result := False;
 end;
-
 
 function TEmbeddedWB.Copy: Boolean;
 var
@@ -2342,6 +2358,7 @@ end;
 
 procedure TEmbeddedWB.Stop;
 begin
+  FStopped := True;
   try
     DefaultInterface.Stop;
   except
@@ -2481,7 +2498,6 @@ begin
   end;
 end;
 
-
 function TEmbeddedWB.PrintMarginStr(M: Real): string;
 begin
   if PrintOptions.Measure <> FRuntimeMeasure then
@@ -2520,7 +2536,8 @@ begin
     begin
       FUserAgentRegSet := False;
       FUserAgentReg := '';
-    end else
+    end
+    else
       with TRegistry.Create do
       begin
         try
@@ -2644,7 +2661,7 @@ end;
 function TEmbeddedWB.SearchNextText(const Value: string; Direction: TSearchDirections = sdDown;
   AutoSelect: Boolean = True): TSearchResults;
 var
-  Document2: IHtmlDocument2;
+  Document2: IHTMLDocument2;
 const
   ADirection: array[TSearchDirections] of Shortint = (+1, -1);
 begin
@@ -2656,10 +2673,12 @@ begin
     FHTMLChar := #0;
   end;
   //
-  if FSearchText = '' then Exit;
+  if FSearchText = '' then
+    Exit;
   //
   Document2 := GetDocument;
-  if Document2 = nil then Exit;
+  if Document2 = nil then
+    Exit;
 
   if not Assigned(FTextRange) then
     FTextRange := (Document2.body as IHTMLBodyElement).createTextRange;
@@ -2700,8 +2719,7 @@ begin
   end
   else
     FHTMLChar := #0;
-  if (FLastSearchDirection = Direction) and (FHTMLChar = #0)
-    then
+  if (FLastSearchDirection = Direction) and (FHTMLChar = #0) then
     Include(Result, srEndOf);
   FLastSearchDirection := Direction;
 end;
@@ -2779,7 +2797,7 @@ begin
 end;
 
 function TEmbeddedWB.FrameCountFromDocument(SourceDoc:
-  IHtmlDocument2): Integer; //By Aladin
+  IHTMLDocument2): Integer; //By Aladin
 begin
   Wait();
   Result := EwbTools.FrameCountFromDocument(SourceDoc);
@@ -2787,7 +2805,7 @@ end;
 
 function TEmbeddedWB.GetCookie: string;
 begin
-  Result := EwbTools.GetCookie(OleObject);
+  Result := Cookie;
 end;
 
 //Document Operations ----------------------------------------------------------
@@ -2976,7 +2994,6 @@ end;
 
 //Open specific webpages -------------------------------------------------------
 
-
 procedure TEmbeddedWB.GoSearchInGoogle(SearchTerm: string);
 begin
   EwbTools.GoSearchInGoogle(Self, SearchTerm)
@@ -3095,16 +3112,26 @@ begin
   Result := EwbTools.SearchString(Self, strText);
 end;
 
-procedure TEmbeddedWB.SearchAndHighlight(const ACaption, APrompt: string; aText: string = '';
-  ShowInputQuery: Boolean = False);
+procedure TEmbeddedWB.SearchAndHighlight(AText: string; const ACaption, APrompt: string;
+  Flags: TSearchFlags = []; cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll);
 begin
   Wait();
-  EwbTools.SearchAndHighlight(Document, ACaption, APrompt, aText, ShowInputQuery);
+  EwbTools.SearchAndHighlight(Document, AText, ACaption, APrompt, Flags,
+    cbackColor, cForeColor, ScrollIntoView, True);
 end;
 
-function TEmbeddedWB.FillForm(FieldName: string; Value: string): Boolean;
+procedure TEmbeddedWB.SearchAndHighlight(AText: string; Flags: TSearchFlags = [];
+  cbackColor: string = 'yellow'; cForeColor: string = '';
+  ScrollIntoView: TScrollIntoView = sivNoScroll);
 begin
-  Result := EwbTools.FillForm(Self, FieldName, Value)
+  Wait();
+  EwbTools.SearchAndHighlight(Document, AText, '', '', Flags, cbackColor, cForeColor, ScrollIntoView, False);
+end;
+
+function TEmbeddedWB.FillForm(FieldName: string; Value: string; ElementNr: Integer = -1): Boolean;
+begin
+  Result := EwbTools.FillForm(Self, FieldName, Value, ElementNr)
 end;
 
 function TEmbeddedWB.GetFieldValue(FieldName: string): string;
@@ -3212,9 +3239,9 @@ end;
 
 //Proxy ------------------------------------------------------------------------
 
-function TProxySettings.SetProxy(UserAgent, Address: string): Boolean;
+function TProxySettings.SetProxy(UserAgent, Address, Bypass: string): Boolean;
 begin
-  Result := EwbTools.SetProxy(UserAgent, Address);
+  Result := EwbTools.SetProxy(UserAgent, Address, Bypass);
   bProxy := Result;
 end;
 
@@ -3234,7 +3261,7 @@ procedure TEmbeddedWB.RefreshProxy;
 begin
   if FProxySettings.FUserName = '' then
     FProxySettings.SetProxy(FProxySettings.FUserAgent, FProxySettings.FAddress +
-      ':' + IntToStr(FProxySettings.FPort))
+      ':' + IntToStr(FProxySettings.FPort), FProxySettings.FBypass)
   else
     FProxySettings.SetProxy(FProxySettings.FUserAgent, FProxySettings.FAddress,
       FProxySettings.FUserName, FProxySettings.FPassword, FProxySettings.FPort);
@@ -3256,7 +3283,6 @@ procedure TEmbeddedWB.ShowIEVersionInfo;
 begin
   EwbTools.ShowIEVersionInfo(Handle);
 end;
-
 
 procedure TEmbeddedWB.SetNewHomePage(HomePage: string);
 begin
@@ -3285,19 +3311,11 @@ begin
 end;
 
 procedure TEmbeddedWB.DisableNavSound(bDisable: Boolean);
-var
-  i, Code: Integer;
 begin
-  Val(GetIEVersionMajor, I, Code);
-  if Code = 0 then
-  begin
-    if I >= 7 then
-    begin
-      CoInternetSetFeatureEnabled(FEATURE_DISABLE_NAVIGATION_SOUNDS, FEATURE_FROM_PROCESS, bDisable);
-      Exit;
-    end;
-  end;
-  EwbTools.DisableNavSound(bDisable);
+  if GetIEVersionMajor >= 7 then
+    CoInternetSetFeatureEnabled(FEATURE_DISABLE_NAVIGATION_SOUNDS, FEATURE_FROM_PROCESS, bDisable)
+  else
+    EwbTools.DisableNavSound(bDisable);
 end;
 
 procedure TEmbeddedWB.ExecScript(sExpression, sLanguage: string);
@@ -3366,21 +3384,21 @@ begin
   FResizing := not FWinXPSP2orLater;
   FSearchText := '';
   FHTMLChar := #0;
-   {---------------------------------------------}
+  FStopped := False;
+  {---------------------------------------------}
   FUserAgent := '';
   FUserAgentInt := '';
   FUserAgentReg := '';
-   {---------------------------------------------}
+  {---------------------------------------------}
 {$IFDEF DELPHI12_UP}
   Encoding := TEncoding.Default;
 {$ENDIF}
   FTextRange := nil;
   FHTMLCode := TStringList.Create;
-  FHTMLCode.OnChange := HTMLCodeChanged;
   FEnableMessageHandler := True;
   FWndProcSubClassed := False;
   FOnSetUserAgent := OnSetUserAgentEvent;
-  FOnPreRefresh := OnHookChildWindows;
+  FOnHookChildWindow := OnHookChildWindows;
 {$IFDEF Enable_SubClassChildWindows}
   InitEWBChildHook;
 {$ENDIF}
@@ -3451,7 +3469,8 @@ begin
 {$ENDIF}
 
 {$IFDEF USE_EwbTools}
-    if (FProxySettings.FAutoLoadProxy) then RefreshProxy;
+    if (FProxySettings.FAutoLoadProxy) then
+      RefreshProxy;
     if FVisualEffects.FDisableSounds then
     begin
       DisableNavSound(True);
@@ -3464,6 +3483,8 @@ begin
     FPrintOptions.FMeasure := FRunTimeMeasure;
     GetPrintValues;
   end;
+  HTMLCodeChanged(Self);
+  FHTMLCode.OnChange := HTMLCodeChanged;
 end;
 
 procedure TEmbeddedWB.Loaded;
@@ -3497,22 +3518,29 @@ end;
 
 procedure DoFinalization;
 begin
-{$IFDEF USE_EwbDDE}{$IFDEF DELPHI6_UP}
+{$IFDEF USE_EwbDDE}
+{$IFDEF DELPHI6_UP}
 {$WARN SYMBOL_DEPRECATED OFF}
   if DDEHWND <> 0 then
     DeAllocateHWND(DDEHWND);
 {$WARN SYMBOL_DEPRECATED ON}
-{$ENDIF}{$ENDIF}
-{$IFDEF USE_EwbTools}
-  if bProxy then RemoveProxy;
-  if bNavSound then DisableNavSound(False);
 {$ENDIF}
+{$ENDIF}
+
+{$IFDEF USE_EwbTools}
+  if bProxy then
+    RemoveProxy;
+  if bNavSound then
+    DisableNavSound(False);
+{$ENDIF}
+
   Set8087CW(wSaved8087CW);
   if bOleInitialize then
-  try
-    OleUninitialize;
-  except
-  end;
+    try
+      OleUninitialize;
+    except
+    end;
+
 {$IFDEF Enable_AutoFocusControl}
   if Assigned(EwbControl) then
     EwbControl.Free;

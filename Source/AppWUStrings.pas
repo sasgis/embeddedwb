@@ -1,7 +1,7 @@
 //*************************************************************
 //                     Application web Updater strings        *
 //                                                            *
-//                     For Delphi 5 to 2009                   *
+//                     For Delphi 5 to XE                     *
 //                         Freeware unit                      *
 //                            by                              *
 //                     Eran Bodankin (bsalsa)                 *
@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 3 conditions:
@@ -63,7 +63,7 @@ resourcestring
   sCurrentVersion = 'Application current version is: ';
   sDefinition = ' Definition';
   sDelete = ' trying to delete the file !';
-  sDest = '  To: ';
+  sDest = 'Destination: ';
   sDownloadFiles = ' downloading the updates!';
   sDownloadInfo = ' downloading the update Info file!';
   sDownloading = 'Downloading ';
@@ -88,12 +88,12 @@ resourcestring
   sFolderDeleted = 'Folder deleted: ';
   sFolderOK = ' folder. --> OK.';
   sInitialing = 'Initializing the updater.';
-  sInTo = ' to: ';
+  sInTo = ' to ';
   sLocateCurrentVersion = ' trying to locate the current version number!';
   sMailingReport = 'Mailing Error Report.... Hold On.';
   sMatchingDetails = 'Matching details: ';
   smFileNotExist = ' trying to locate the source folder!';
-  sNewUpdateVersion = '  Update version is: ';
+  sNewUpdateVersion = ' Update version is: ';
   sNoAvailableUpdates = 'There are no new available updates. ';
   sOpenFolder = 'Open folder : ';
   sOverWriting = ' (OverWriting.)';
@@ -129,7 +129,7 @@ resourcestring
   sXMLError = ' trying to parse the XML file!';
   sXmlErrorParsingData = ('Error parsing XML data');
   sXMLFileError = 'An error has been found in the update XML file in the ';
-  sXmlHead = '(  XML Head Section)';
+  sXmlHead = '(XML Head Section)';
   sXMLInformation = 'XML Information: ';
   sXmlParsingData = 'Parsing XML data';
   sXmlParsingHead = 'Parsing XML Head section';
@@ -137,8 +137,8 @@ resourcestring
   sXmlUpdatesSection = 'Updates Section';
 
    //Do not translate the forward strings unless you do so also
-   // in the remote site XML file and you know what you are doing. (Read the AppWebUpdater code!)
-  sApplicationFolder = 'ApplicationFolder\';
+   // in the remote site XML file and you know what you are doing.
+   //(Read the AppWebUpdater code!)
   sDestination = 'Destination';
   sNo = 'no';
   sTerminate = 'Terminate';
@@ -155,7 +155,12 @@ resourcestring
   sXmlUpdates = 'Updates';
   sXmlVersion = 'Version';
   sYes = 'yes';
+  sXmlMajorVer = 'MajorVersion';
+  sXmlMinorVer= 'MinorVersion';
+  sXmlReleaseVer= 'ReleaseVersion';
+  sXmlBuildVer= 'BuildVersion';
 
 implementation
 
 end.
+

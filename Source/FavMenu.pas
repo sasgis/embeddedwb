@@ -1,7 +1,7 @@
 //******************************************************************
 //                                                                 *
 //                          TFavoritesMenu                         *                                                      *
-//                 For Delphi 5, 6, 7, 2005, 2006                  *
+//                     For Delphi 5 to XE                          *
 //                     Freeware Component                          *
 //                            by                                   *
 //                     Per Lindsø Larsen                           *
@@ -11,7 +11,7 @@
 //  Contributions:                                                 *
 //  Pete Morris (MrPMorris@Hotmail.com)                            *
 //  Rob Young (rob@coolfocus.com)                                  *
-//  Eran Bodankin (bsalsa) bsalsa@gmail.com                       *
+//  Eran Bodankin (bsalsa) bsalsa@gmail.com                        *
 //         -  D2005 update & added new functions                   *
 //                                                                 *
 //  Updated versions:                                              *
@@ -25,12 +25,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -46,11 +46,11 @@ unit FavMenu;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
 
-  Classes, Controls, Forms, Shlobj, Imglist, Menus, EmbeddedWB;
+  Classes, Controls, Forms, ShlObj, Imglist, Menus, EmbeddedWB;
 
 
 type
@@ -78,13 +78,14 @@ type
     FImportFavorites: string;
     FExportFavorites: string;
     FImportExportWizard: string;
+    FEmptyCaption: string;
   published
     property AddFavorites: string read FAddFavorites write FAddFavorites;
     property OrganizeFavorites: string read FOrganizeFavorites write FOrganizeFavorites;
     property ImportFavorites: string read FImportFavorites write FImportFavorites;
     property ExportFavorites: string read FExportFavorites write FExportFavorites;
     property ImportExportWizard: string read FImportExportWizard write FImportExportWizard;
-
+    property EmptyCaption: string read FEmptyCaption write FEmptyCaption;
   end;
 
   TFavoritesMenu = class(TComponent)
@@ -167,7 +168,7 @@ end;
 
 function CheckShortcut(Shortcut, Flag: Integer): Boolean;
 begin
-  Result := Shortcut and Flag <> 0;
+  Result := ShortCut and Flag <> 0;
 end;
 
 function GetImageIndex(PIDL: PItemIDList; Large, Open: Boolean): Integer;
@@ -196,6 +197,7 @@ begin
   FLocalization.FImportFavorites := 'Import Favorites';
   FLocalization.FExportFavorites := 'Export Favorites';
   FLocalization.FImportExportWizard := 'Import Export Favorites Wizard';
+  FLocalization.FEmptyCaption := ' (empty) ';
   SHGetDesktopFolder(Desktop);
   SHGetSpecialFolderLocation(Application.Handle, CSIDL_FAVORITES, FavoritesPIDL);
   FCaption := ExtractFileName(GetFileName(Desktop, FavoritesPidl));
@@ -206,13 +208,13 @@ begin
       then
       ChannelShortCut := ReadString('')
     else
-      ChannelShortcut := 'Channel Shortcut';
+      ChannelShortCut := 'Channel Shortcut';
     Closekey;
     if OpenKey('InternetShortcut', FALSE)
       then
       InternetShortCut := ReadString('')
     else
-      InternetShortcut := 'Internet Shortcut';
+      InternetShortCut := 'Internet Shortcut';
     Closekey;
     Free;
   end;
@@ -258,10 +260,7 @@ begin
   if FEnabled and Assigned(FEmbeddedWB) then
   begin
     if not FEmbeddedWB.DocumentLoaded then
-    begin
-      FEmbeddedWB.AssignEmptyDocument;
-      FEmbeddedWB.Wait;
-    end;
+      FEmbeddedWB.AssignEmptyDocument(True);
     ExportFAv := TExportFavorite.Create(Self);
     with ExportFav do
     begin
@@ -278,10 +277,7 @@ begin
   if FEnabled and Assigned(FEmbeddedWB) then
   begin
     if not FEmbeddedWB.DocumentLoaded then
-    begin
-      FEmbeddedWB.AssignEmptyDocument;
-      FEmbeddedWB.Wait;
-    end;
+      FEmbeddedWB.AssignEmptyDocument(True);
     ImportFav := TImportFavorite.Create(Self);
     with ImportFav do
     begin
@@ -307,7 +303,7 @@ end;
 procedure TFavoritesMenu.OrganizeFavorite(Sender: Tobject);
 var
   SpecialPath: array[0..MAX_PATH] of Char;
-  H: HWnd;
+  H: Cardinal;
   bGet: Boolean;
 begin
   if FEnabled then
@@ -319,7 +315,7 @@ begin
       if Assigned(Procedur) then
       begin
         bGet := SHGetPathFromIDList(FavoritesPidl, SpecialPath);
-        if (not bGet) and (Assigned(FOnError)) then
+        if (not bGet) and Assigned(FOnError) then
           FOnError(E_FAIL, 'Failed while getting path for the favorites!');
         Procedur(Application.Handle, PAnsiChar(AnsiString(SpecialPath)));
       end;
@@ -340,32 +336,28 @@ var
   Url, Title: OleVariant;
   Success: integer;
 begin
-  if FEnabled then
+  if (FEnabled) and (Assigned(FEmbeddedWB)) then
   begin
-    if Assigned(FEmbeddedWB) then
+    Title := FEmbeddedWB.LocationName;
+    Url := FEmbeddedWB.LocationUrl;
+    if (Url <> EmptyStr) and (url <> 'about:blank') then
     begin
-      if (FEmbeddedWB = nil) and (Assigned(FEmbeddedWB)) then
-        Title := FEmbeddedWB.LocationName;
-      Url := FEmbeddedWB.LocationUrl;
-      if Url <> '' then
-      begin
-        Success := CoCreateInstance(CLSID_SHELLUIHELPER, nil, CLSCTX_INPROC_SERVER,
-          IID_IShellUIHelper, ShellUIHelper);
-        if Assigned(FOnAddFavorites) then
-          FOnAddFavorites(FEmbeddedWB, Title, URL, Success);
-        if (Success <> S_OK) and (Assigned(FOnError)) then
-          FOnError(Success, 'Failed  while adding to favorites!');
-        ShellUIHelper.AddFavorite(Url, Title);
-        RebuildMenu;
-      end
-      else
-        if (Assigned(FOnError)) then
-          FOnError(E_FAIL, 'Failed - Empty URL string!');
+      Success := CoCreateInstance(CLSID_SHELLUIHELPER, nil, CLSCTX_INPROC_SERVER,
+        IID_IShellUIHelper, ShellUIHelper);
+      if Assigned(FOnAddFavorites) then
+        FOnAddFavorites(FEmbeddedWB, Title, URL, Success);
+      if (Success <> S_OK) and (Assigned(FOnError)) then
+        FOnError(Success, 'Failed  while adding to favorites!');
+      ShellUIHelper.AddFavorite(Url, Title);
+      RebuildMenu;
     end
     else
       if (Assigned(FOnError)) then
-        FOnError(E_FAIL, 'Please assign a browser');
-  end;
+        FOnError(E_FAIL, 'Failed - Empty URL string!');
+  end
+  else
+    if (Assigned(FOnError)) then
+      FOnError(E_FAIL, 'Please assign a browser');
 end;
 
 procedure TFavoritesMenu.AddDummy(menu: TMenuItem);
@@ -382,7 +374,7 @@ var
   Empty: TMenuItem;
 begin
   Empty := TMenuItem.Create(self);
-  Empty.Caption := ' (Empty) ';
+  Empty.Caption := FLocalization.FEmptyCaption;
   Empty.Enabled := False;
   Menu.add(Empty);
 end;
@@ -401,60 +393,63 @@ begin
   if FEnabled then
   begin
     TempList := TList.Create;
-    Success := Desktop.BindToObject(FullID, nil, IID_IShellFolder, Pointer(Folder));
-    if (Success <> S_OK) and (Assigned(FOnError)) then
-      FOnError(Success, 'Failed retrieves an IShellFolder object for a subfolder!');
-    Success := Folder.EnumObjects(Application.Handle, SHCONTF_FOLDERS or SHCONTF_NONFOLDERS,
-      EnumList);
-    if (Success <> S_OK) and (Assigned(FOnError)) then
-      FOnError(Success, 'Failed Enum objects!');
-    while EnumList.Next(1, ID, NumIDs) = S_OK do
-    begin
-      if not Channels and IsChannel(ChannelShortcut, Folder, ID) then
-        Continue;
-      Item := New(PItem);
-      Item.ID := CopyPidl(ID);
-      Item.FullID := ConcatPIDLs(FullID, ID);
-      Item.Folder := IsFolderEx(ChannelShortcut, Folder, ID);
-      Item.Created := False;
-      TempList.Add(Item);
-    end;
-    DisposePidl(ID);
-    if TempList.Count = 0 then
-    begin
-      AddEmpty(Menu);
+    try
+      Success := Desktop.BindToObject(FullID, nil, IID_IShellFolder, Pointer(Folder));
+      if (Success <> S_OK) and (Assigned(FOnError)) then
+        FOnError(Success, 'Failed to retrieve an IShellFolder object for a subfolder!');
+      Success := Folder.EnumObjects(Application.Handle, SHCONTF_FOLDERS or SHCONTF_NONFOLDERS,
+        EnumList);
+      if (Success <> S_OK) and (Assigned(FOnError)) then
+        FOnError(Success, 'Failed Enum objects!');
+      while EnumList.Next(1, ID, NumIDs) = S_OK do
+      begin
+        if not Channels and IsChannel(ChannelShortCut, Folder, ID) then
+          Continue;
+        Item := New(PItem);
+        Item.ID := CopyPidl(ID);
+        Item.FullID := ConcatPIDLs(FullID, ID);
+        Item.Folder := IsFolderEx(ChannelShortCut, Folder, ID);
+        Item.Created := False;
+        TempList.Add(Item);
+      end;
+      DisposePidl(ID);
+      if TempList.Count = 0 then
+      begin
+        AddEmpty(Menu);
+        Exit;
+      end;
+      TempList.Sort(SortFunc);
+      for I := 0 to TempList.Count - 1 do
+      begin
+        List.Add(PItem(Templist[I]));
+        MenuItem := TMenuItem.Create(Menu);
+        with MenuItem do
+        begin
+          SubMenuImages := Images;
+          OnClick := MenuClick;
+          Tag := Counter;
+          Caption := GetDisplayName(Folder, PItem(TempList[I])^.ID);
+        end;
+        if Length(MenuItem.Caption) > FMaxWidth then
+          MenuItem.Caption := Copy(MenuItem.Caption, 1, FMaxWidth) + '...';
+        J := GetImageIndex(PItem(TempList[I])^.FullID, False, False);
+        if (J = 3) and (CheckShortCut(SFGAO_LINK, SFGAO_DISPLAYATTRMASK)) then
+        begin
+          ShGetFileInfo('*.htm', FILE_ATTRIBUTE_NORMAL, sfi, SizeOf(sfi),
+            SHGFI_SYSICONINDEX or SHGFI_USEFILEATTRIBUTES or SHGFI_SMALLICON);
+          J := sfi.iIcon;
+          DestroyIcon(sfi.iIcon);
+        end;
+        MenuItem.ImageIndex := J;
+        Menu.Add(MenuItem);
+        Inc(Counter);
+        if PItem(TempList[I])^.Folder then
+          AddDummy(MenuItem);
+      end;
+
+    finally
       TempList.Free;
-      exit;
     end;
-    TempList.Sort(SortFunc);
-    for I := 0 to TempList.Count - 1 do
-    begin
-      List.Add(PItem(Templist[I]));
-      MenuItem := TMenuItem.Create(Menu);
-      with MenuItem do
-      begin
-        SubMenuImages := Images;
-        OnClick := MenuClick;
-        Tag := Counter;
-        Caption := GetDisplayName(Folder, PItem(TempList[I])^.ID);
-      end;
-      if Length(MenuItem.Caption) > FMaxWidth then
-        MenuItem.Caption := Copy(MenuItem.Caption, 1, FMaxWidth) + '...';
-      J := GetImageIndex(PItem(TempList[I])^.FullID, False, False);
-      if (J = 3) and (CheckShortcut(SFGAO_LINK, SFGAO_DISPLAYATTRMASK)) then
-      begin
-        ShGetFileInfo('*.htm', FILE_ATTRIBUTE_NORMAL, sfi, sizeOf(sfi),
-          SHGFI_SYSICONINDEX or SHGFI_USEFILEATTRIBUTES or SHGFI_SMALLICON);
-        J := sfi.iIcon;
-        DestroyIcon(sfi.iIcon);
-      end;
-      MenuItem.ImageIndex := J;
-      Menu.Add(MenuItem);
-      Inc(Counter);
-      if PItem(TempList[I])^.Folder then
-        AddDummy(MenuItem);
-    end;
-    TempList.Free;
   end;
 end;
 
@@ -471,8 +466,7 @@ begin
   begin
     if PItem(list[(Sender as TMenuItem).Tag])^.folder then
     begin
-      if
-        not PItem(list[(Sender as TMenuItem).Tag]).Created then
+      if not PItem(list[(Sender as TMenuItem).Tag]).Created then
       begin
         AddMenu(Sender as TMenuItem,
           PItem(list[(Sender as TMenuItem).Tag])^.FULLID);
@@ -485,13 +479,13 @@ begin
       StripLastID(ID);
       Success := Desktop.BindToObject(ID, nil, IID_IShellFolder, Pointer(Folder));
       if (Success <> S_OK) and (Assigned(FOnError)) then
-        FOnError(Success, 'Failed Retrieves an IShellFolder object for a subfolder!');
+        FOnError(Success, 'Failed to retrieve an IShellFolder object for a subfolder!');
       SHGetFileInfo(PChar(PItem(list[(Sender as TMenuItem).Tag])^.ID), 0,
         FileInfo, SizeOf(TSHFileInfo), SHGFI_PIDL or SHGFI_TYPENAME or SHGFI_ATTRIBUTES);
       if Fileinfo.szTypeName = ChannelShortcut then
         ResolveChannel(Folder, PItem(list[(Sender as TMenuItem).Tag])^.ID, Url)
       else
-        if fileinfo.szTypeName = InternetShortcut then
+        if fileinfo.szTypeName = InternetShortCut then
         begin
           if FResolveUrl = IntshCut then
             Url := ResolveUrlIntShCut(GetFileName(Folder,
@@ -624,3 +618,4 @@ begin
 end;
 
 end.
+

@@ -1,6 +1,6 @@
 //*************************************************************************
 //                                                                        *
-//                    IEDownload 2009                                     *
+//                    IEDownload 2010                                     *
 //     IEDownload is a UrlMon wrapper with a build-in Callback            *
 //                                                                        *
 //                     Freeware Component                                 *
@@ -18,12 +18,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -35,7 +35,6 @@ You may use, change or modify the component under 4 conditions:
 {*******************************************************************************}
 //$Id: IEDownload.pas,v 1.6 2009/02/25 11:56:31 bsalsa Exp $
 
-
 unit IEDownload;
 
 {To use the MSHTML, just remove the dot in the line below like {$DEFINE USE_MSHTML}{
@@ -44,13 +43,20 @@ and re-compile the package.}
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
+{$IFDEF DELPHI6_UP}
+{$WARN SYMBOL_PLATFORM OFF}
+{$ENDIF}
+
+{$IFDEF DELPHI7_UP}
+{$WARN SYMBOL_DEPRECATED OFF}
+{$ENDIF}
 
 uses
-  IEDownloadAcc, Controls, Shellapi, IEConst, ActiveX,
+  Dialogs, IEDownloadAcc, Controls, Shellapi, IEConst, ActiveX,
   Contnrs, ExtCtrls, Windows, WinInet, UrlMon, Classes, SysUtils
-{$IFDEF USE_MSHTML}, MSHTML_EWB{$ENDIF};
+{$IFDEF DELPHI5}, FileCtrl{$ENDIF}{$IFDEF USE_MSHTML}, MSHTML_EWB{$ENDIF};
 
 const
   WAIT_BSCB = WAIT_OBJECT_0 + 1;
@@ -92,7 +98,8 @@ type
     infExtraInfo: string;
     infFileExt: string;
     infFileName: string;
-    inFFileSize: ULong;
+    infFileSize: Cardinal;
+    infHost: string;
     infIndex: Integer;
     infInheritHandle: Boolean;
     infPassword: string;
@@ -116,11 +123,12 @@ type
 
   TBSCB = class(TThread,
       IAuthenticate,
-    {$IFDEF DELPHI6_UP}
+{$IFDEF DELPHI6_UP}
       IAuthenticateEx,
       IMonikerProp,
-   {$ENDIF}
+{$ENDIF}
       IBindHost,
+      IWindowForBindingUI,
       IBindStatusCallback,
       IBindStatusCallbackEx,
       ICodeInstall,
@@ -145,25 +153,25 @@ type
     FGlobalData: HGLOBAL;
     FMoniker: IMoniker;
     FRedirect: Boolean;
-    StreamInterface: IStream;
+    fOutStream: IStream;
     FTimedOut: Boolean;
     FTotalRead: Cardinal;
     m_pPrevBSCB: IBindStatusCallback;
     fsOutputFile: TFileStream;
 
-    function GetSerializedClientCertContext(out ppbCert: Byte; var pcbCert: DWORD): HResult; stdcall;
+    function GetSerializedClientCertContext(out ppbCert: Byte; var pcbCert:
+      DWORD): HResult; stdcall;
 {$IFDEF DELPHI6_UP}
     function AuthenticateEx(out phwnd: HWND; out pszUsername,
       pszPassword: LPWSTR; var pauthinfo: AUTHENTICATEINFO): HResult; stdcall;
     {IMonikerProp Interface}
     function PutProperty(mkp: MONIKERPROPERTY; val: LPCWSTR): HResult;
       stdcall;
- {$ENDIF}
+{$ENDIF}
 
     {IBindStatusCallbackEx}
-   function GetBindInfoEx(out grfBINDF: DWORD; var pbindinfo: BINDINFO;
+    function GetBindInfoEx(out grfBINDF: DWORD; var pbindinfo: BINDINFO;
       out grfBINDF2: DWORD; out pdwReserved: DWORD): HResult; stdcall;
-
 
 {$IFDEF USE_MSHTML}
     {IPropertyNotifySink Interface}
@@ -220,10 +228,12 @@ type
       dwReserved: DWORD): HResult; stdcall;
     function MonikerBindToStorage(Mk: IMoniker; BC: IBindCtx; BSC:
       IBindStatusCallback;
-      const iid: TGUID; out pvObj {$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult; stdcall;
+      const iid: TGUID; out pvObj{$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
+        stdcall;
     function MonikerBindToObject(Mk: IMoniker; BC: IBindCtx; BSC:
       IBindStatusCallback;
-      const iid: TGUID; out pvObj {$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult; stdcall;
+      const iid: TGUID; out pvObj{$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
+        stdcall;
 
     {IServiceProvider Interface}
     function QueryService(const rsid, iid: TGUID; out Obj): HRESULT; stdcall;
@@ -241,7 +251,6 @@ type
     procedure ReturnData;
     procedure GetData(aSender: TCustomIEDownload);
     procedure SetComponents;
-
   protected
     procedure Execute; override;
     procedure Suspend;
@@ -253,17 +262,19 @@ type
     Binding: IBinding;
     BscbInfo: TInfoData;
     ThreadStatus: TThreadStatus;
-    constructor Create(aSender: TCustomIEDownload; pmk: IMoniker; pbc: IBindCtx;
-      CreateSuspended: boolean);
+    constructor Create(aSender: TCustomIEDownload; const pmk: IMoniker;
+      const pbc: IBindCtx; CreateSuspended: boolean);
     destructor Destroy; override;
-    function QueryInfoFileName: WideString;
-    function DoSaveFileAs: WideString;
+    function QueryInfoFileName: HRESULT;
+    function DoSaveFileAs: string;
     function QueryInfo(dwOption: DWORD; var Info: Cardinal): Boolean; overload;
     function QueryInfo(dwOption: DWORD; var Info: string): Boolean; overload;
     function QueryInfo(dwOption: DWORD; var Info: TDateTime): Boolean; overload;
     function IsRunning: Boolean;
-    function GetDisplayName: string;
+    function GetDisplayName: PWideChar;
+    function GetFileNameFromUrl(Url: string): string;
     function AbortBinding: Hresult;
+    function MkParseDisplayName(var DisplayName: PWideChar): IMoniker;
   end;
 
   TBSCBList = class(TObjectList) {by Jury Gerasimov}
@@ -296,7 +307,7 @@ type
     property RangeBegin: Integer read FRangeBegin write FRangeBegin default 0;
     property RangeEnd: Integer read FRangeEnd write FRangeEnd default 0;
   end;
-    {http://msdn.microsoft.com/en-us/library/ms775130(VS.85).aspx}
+  {http://msdn.microsoft.com/en-us/library/ms775130(VS.85).aspx}
   TBindF = (Asynchronous, AsyncStorage, NoProgressiveRendering,
     OfflineOperation, GetNewestVersion, NoWriteCache, NeedFile, PullData,
     IgnoreSecurityProblem, Resynchronize, AllowHyperlink, No_UI,
@@ -310,9 +321,11 @@ type
   TBindF2_Options = set of TBindF2;
   TBindInfoF = (PostData, ExtraInfo);
   TBindInfoF_Options = set of TBindInfoF;
-  TBindInfoOption = (UseBindInfoOptions, EnableUtf8, DisableUtf8, UseIE_Encoding,
+  TBindInfoOption = (UseBindInfoOptions, EnableUtf8, DisableUtf8,
+    UseIE_Encoding,
     BindToObject, SecurityOptOut, IgnoreMimeTextPlain, UseBindStrCredentials,
-    IgnoreHttp2HttpsRedirect, IgnoreSslErrOnce, WpcDownloadBlocked, WpcLoggingEnabled,
+    IgnoreHttp2HttpsRedirect, IgnoreSslErrOnce, WpcDownloadBlocked,
+      WpcLoggingEnabled,
     DisableAutoRedirect, ShDocVw_Reserved, AllowConnectMessages);
   TBindInfoOptions_Options = set of TBindInfoOption;
   TBindVerb = (Get, Post, Put, Custom);
@@ -325,19 +338,20 @@ type
     UTF7, {Translate using UTF-7}
     UTF8); {Translate using UTF-8}
 
-  TDownloadTo = (dtNormal, dtDownloadToFile, dtDownloadToCache);
+  TDownloadTo = (dtNormal, dtDownloadToFile, dtDownloadToCache, dtMoniker);
   TDownloadMethod = (dmStream, dmFile); {Set download to a file or astream}
   TFileExistsOption = (feOverWrite, feSkip, feRename); {If file exsits then..}
 
   TQueryInterfaceEvent = function(const IID: TGUID; out Obj): HRESULT of object;
   TAuthenticateEvent = procedure(Sender: TBSCB; var tmpHWND: HWnd;
     var szUserName, szPassWord: WideString; var Rezult: HRESULT) of object;
-  {$IFDEF DELPHI6_UP}
+{$IFDEF DELPHI6_UP}
   TAuthenticateExEvent = procedure(Sender: TBSCB; var tmpHWND: HWnd;
     var szUserName, szPassWord: WideString; pauthinfo: AUTHENTICATEINFO;
-      var Rezult: HRESULT) of object;
-  TOnPutPropertyEvent = function(Sender: TBSCB; mkp: MONIKERPROPERTY; val: LPCWSTR): HResult of object;
-  {$ENDIF}
+    var Rezult: HRESULT) of object;
+  TOnPutPropertyEvent = function(Sender: TBSCB; mkp: MONIKERPROPERTY; val:
+    LPCWSTR): HResult of object;
+{$ENDIF}
 
   TOnCodeInstallProblemEvent = function(Sender: TBSCB; ulStatusCode: ULONG;
     szDestination, szSource: LPCWSTR;
@@ -349,7 +363,8 @@ type
     object;
   TOnGetBindInfoEvent = function(Sender: TBSCB; out grfBINDF: DWORD; var
     BindInfo: TBindInfo): HRESULT of object;
-  TOnGetBindInfoExEvent = function(Sender: TBSCB; out grfBINDF: DWORD; pbindinfo: BINDINFO;
+  TOnGetBindInfoExEvent = function(Sender: TBSCB; out grfBINDF: DWORD;
+    pbindinfo: BINDINFO;
     out grfBINDF2: DWORD): HRESULT of object;
   TRedirect = procedure(Sender: TBSCB; var AbortRedirect: boolean; const
     FromUrl: string; const DestUrl: string) of object;
@@ -370,35 +385,43 @@ type
     BufLength: Cardinal) of object;
   TOnDataAvailableInfoEvent = procedure(Sender: TBSCB; grfBSCF: DWORD;
     Status: string {; FormatEtc: PFormatEtc}) of object;
-  TOnCompleteEvent = procedure(Sender: TCustomIEDownload; aFileNameAndPath, aFileName,
-    aFolderName, aExtension: WideString; const ActiveConnections: Integer) of object;
+  TOnCompleteEvent = procedure(Sender: TCustomIEDownload; aFileNameAndPath,
+    aFileName,
+    aFolderName, aExtension: WideString; const ActiveConnections: Integer) of
+      object;
   TOnStreamCompleteEvent = procedure(Sender: TBSCB; Stream: TStream; Result:
     HRESULT) of object;
   TOnResumeEvent = procedure(Sender: TBSCB; FileName: string; var Action:
     Cardinal) of object;
   TGetWindowEvent = function(Sender: TBSCB; const GUIDReason: TGUID; out hwnd:
     LongWord): HRESULT of object;
-  TOnStartBindingEvent = procedure(var Sender: TBSCB; var Cancel: Boolean; pib:
-    IBinding) of object;
+  TOnStartBindingEvent = procedure(Sender: TBSCB; var Cancel: Boolean; pib:
+    IBinding; const FileName: WideString; const FileSize: integer) of object;
   TOnStopBindingEvent = procedure(Sender: TBSCB; HRESULT: HRESULT;
     szError: LPCWSTR) of object;
   TOnGetBindResultsEvent = procedure(var Sender: TBSCB; out clsidProtocol:
     TCLSID; out dwResult: DWORD; out szResult: POLEStr;
     const stResult: string) of object;
-  TOnGetClientCertEvent = function(var Sender: TBSCB;out ppbCert: Byte; var pcbCert: DWORD ):HResult of object;
+  TOnGetClientCertEvent = function(var Sender: TBSCB; out ppbCert: Byte; var
+    pcbCert: DWORD): HResult of object;
   TTerminateEvent = procedure(const Sender: TBSCB; const ThreadId: Integer;
-    const aFileName: WideString; var bCancel: Boolean) of object;
+    const aFileName: Widestring; var bCancel: Boolean) of object;
   TOnGetRootSecurityIdEvent = function(var SecurityIdBuffer: TByteArray; var
     BufferSize: DWord): HRESULT of object;
   {IServiceProvider Interface}
   TQueryServiceEvent = procedure(Sender: TObject; const rsid, iid: TGUID; var
     Obj: IUnknown) of object;
-
+  TOnBeforeDownloadEvent = procedure(Sender: TInfoData; const Url, FileName,
+    FileExtension, Host, DownloadFolder: string; const FileSize: Integer; var
+      Cancel: Boolean) of object;
 
   TCustomIEDownload = class(TComponent)
 
   private
     FAbout: string;
+{$IFNDEF DELPHI7_UP}
+    FOldTimeSep: Char;
+{$ENDIF}
     bCancelAll: boolean;
     bDone: boolean;
     bRenamed: boolean;
@@ -423,29 +446,33 @@ type
     FCustomVerb: string;
     FDefaultProtocol: string;
     FDefaultUrlFileName: string;
-    FDisplayName: string;
+    FDisplayName: PWideChar;
     FdlCounter: integer;
-    FDownloadedFile: WideString;
-    FDownloadFolder: WideString;
+    FDownloadedFile: string;
+    FDownloadFolder: string;
     FDownloadMethod: TDownloadMethod;
     FDownloadTo: TDownloadTo;
     FExtraInfo: string;
     FFileExistsOption: TFileExistsOption;
-    FFileExtension: WideString;
-    FFileName: WideString;
+    FFileExtension: string;
+    FFileName: string;
     FFileSize: ULong;
     FFullUserAgent: string;
     FGetWindow: TGetWindowEvent;
     FHWnd: HWND;
     FMimeType: string;
     FOnAuthenticate: TAuthenticateEvent;
-    {$IFDEF DELPHI6_UP}
+{$IFDEF DELPHI6_UP}
     FOnAuthenticateEx: TAuthenticateExEvent;
     FOnPutProperty: TOnPutPropertyEvent;
-    {$ENDIF}
+{$ENDIF}
+{$IFDEF DELPHI7_UP}
+    FFormatSettings: TFormatSettings;
+{$ENDIF}
     FOnCodeInstallProblem: TOnCodeInstallProblemEvent;
     FOnComplete: TOnCompleteEvent;
     FOnConnect: TOnConnectEvent;
+    FOnBeforeDownload: TOnBeforeDownloadEvent;
     FOnDataAvailable: TOnDataAvailableEvent;
     FOnDataAvailableInfo: TOnDataAvailableInfoEvent;
     FOnError: TErrorEvent;
@@ -453,7 +480,7 @@ type
     FOnGetBindInfo: TOnGetBindInfoEvent;
     FOnGetBindInfoEx: TOnGetBindInfoExEvent;
     FOnGetBindResults: TOnGetBindResultsEvent;
-    FOnGetClientCert:TOnGetClientCertEvent;
+    FOnGetClientCert: TOnGetClientCertEvent;
     FOnGetRootSecurityId: TOnGetRootSecurityIdEvent;
     FOnProgress: TOnProgressEvent;
     FOnQueryInterface: TQueryInterfaceEvent;
@@ -480,7 +507,7 @@ type
     FStartTick: Integer;
     FState: TState;
     FTimeOut: Integer;
-    FUrl: WideString;
+    FUrl: string;
     FUserAgent: string;
     FUserName: string;
     FUseSystemDownloadFolder: boolean;
@@ -489,14 +516,14 @@ type
     hStop: THandle;
 
   private
-    function GoAction(const actUrl: WideString; const actFileName: WideString;
-     const actDownloadFolder: WideString; pmk: IMoniker; pbc: IBindCtx):boolean;
-    function GoInit(const inUrl: WideString; const inFileName: WideString;
-      const inDownloadFolder: WideString): boolean;
-    function SetDownloadFolder(const aDownloadFolder: WideString): WideString;
-    function SetHttpProtocol(const aUrl: WideString): WideString;
+    function GoAction(const actUrl, actFileName, actDownloadFolder: string;
+      pmk: IMoniker; pbc: IBindCtx): boolean;
+    function GoInit(const inUrl: string; const inFileName: string;
+      const inDownloadFolder: string): boolean;
+    function SetDownloadFolder(const aDownloadFolder: string): string;
+    function SetHttpProtocol(const aUrl: string): string;
     procedure DoUpdate;
-    procedure ExtractDataFromFile(const aFileName: WideString);
+    procedure ExtractDataFromFile(const aFileName: string);
     procedure PrepareForExit;
     procedure PrepareForStart;
     procedure SetAbout(Value: string);
@@ -510,7 +537,7 @@ type
     procedure SetCodePage(const Value: TCodePageOption);
     procedure SetDefaultProtocol(const Value: string);
     procedure SetDownloadMethod(const Value: TDownloadMethod);
-    procedure SetFileName(const Value: WideString);
+    procedure SetFileName(const Value: string);
     procedure SetUserAgent;
     procedure Update_BindF_Value;
     procedure Update_BindF2_Value;
@@ -521,35 +548,34 @@ type
     ItemsManager: TBSCBList;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function CheckFileExists(const aFileName: WideString): boolean;
+    function CheckFileExists(const aFileName: string): boolean;
     function CodeInstallProblemToStr(const ulStatusCode: Integer): string;
     function FormatSize(const Byte: Double): string;
     function FormatTickToTime(const TickCount: Cardinal): string;
     function IsAsyncMoniker(const pmk: IMoniker): HRESULT;
     function IsSynchronous(iedInfo: TInfoData): boolean;
-    function IsUrlValid(const isUrl: WideString): Boolean;
+    function IsUrlValid(const isUrl: string): Boolean;
     function OpenFolder(const aFolderName: string): Boolean;
     function ResponseCodeToStr(const dwResponse: Integer): string;
-    function SetFileNameFromUrl(const aUrl: WideString): WideString;
-    function URLDownloadToCacheFile(const aUrl: WideString): WideString;
-    function UrlDownloadToFile(const aUrl: WideString): HRESULT;
+    function SetFileNameFromUrl(const aUrl: string): string;
+    function URLDownloadToCacheFile(const aUrl: string): string;
+    function UrlDownloadToFile(const aUrl: string): HRESULT;
     function WaitForProcess(var EventName: THandle; var aStartTick,
-      aTimeOut:Integer): Boolean;
-    function WideStringToLPOLESTR(const Source: WideString): POleStr;
+      aTimeOut: Integer): Boolean;
+    function WideStringToLPOLESTR(const Source: string): POleStr;
     procedure BeforeDestruction; override;
     procedure Cancel(const Item: TBSCB); overload;
     procedure Cancel; overload;
     procedure Reset;
     procedure CancelAll;
-    procedure Download(const aUrl: WideString; pmk: IMoniker; pbc: IBindCtx); overload;
-    procedure Download(const UrlsList: TStrings; pmk: IMoniker; pbc: IBindCtx); overload;
-    procedure Go(const aUrl: WideString); overload;
-    procedure Go(const aUrl: WideString; const aFileName: WideString); overload;
-    procedure Go(const aUrl: WideString; const aFileName: WideString; const
-      aDownloadFolder: WideString); overload;
+    procedure Download(const pmk: IMoniker; const pbc: IBindCtx); overload;
+    procedure Go(const aUrl: string); overload;
+    procedure Go(const aUrl: string; const aFileName: string); overload;
+    procedure Go(const aUrl: string; const aFileName: string; const
+      aDownloadFolder: string); overload;
     procedure GoList(const UrlsList: TStrings); overload;
     procedure GoList(const UrlsList: TStrings; const FileNameList: TStrings);
-    overload;
+      overload;
     procedure GoList(const UrlsList: TStrings; const FileNameList: TStrings;
       const DownloadFolderList: TStrings); overload;
     procedure Loaded; override;
@@ -559,10 +585,10 @@ type
   public
     property ActiveConnections: integer read FActiveConnections;
     property Busy: Boolean read FBusy;
-    property DisplayName: string read FDisplayName;
-    property DownloadedFile: WideString read FDownloadedFile;
+    property DisplayName: PWideChar read FDisplayName;
+    property DownloadedFile: string read FDownloadedFile;
     property DownloadsCounter: integer read FdlCounter;
-    property FileExtension: WideString read FFileExtension;
+    property FileExtension: string read FFileExtension;
     property FileSize: ULong read FFileSize;
     property MimeType: string read FMimeType;
     property ServerAddress: string read FServerAddress;
@@ -583,7 +609,8 @@ type
     property BindVerb: TBindVerb read FBindVerb write
       SetBindVerb default Get;
     property BindInfoOptions: TBindInfoOptions_Options read FBindInfoOption_
-      write SetBindInfoOption default [UseBindInfoOptions, AllowConnectMessages];
+      write SetBindInfoOption default [UseBindInfoOptions,
+        AllowConnectMessages];
     property CodePage: TCodePageOption read FCodePageOption write
       SetCodePage default Ansi;
     property CustomVerb: string read FCustomVerb write FCustomVerb;
@@ -591,21 +618,24 @@ type
       SetDefaultProtocol;
     property DefaultUrlFileName: string read FDefaultUrlFileName write
       FDefaultUrlFileName;
-    property DownloadFolder: WideString read FDownloadFolder write
+    property DownloadFolder: string read FDownloadFolder write
       FDownloadFolder;
     property DownloadMethod: TDownloadMethod read FDownloadMethod write
       SetDownloadMethod default dmFile;
     property ExtraInfo: string read FExtraInfo write FExtraInfo;
     property FileExistsOption: TFileExistsOption read FFileExistsOption write
       FFileExistsOption default feOverwrite;
-    property FileName: WideString read FFileName write SetFileName;
+    property FileName: string read FFileName write SetFileName;
     property OnAuthenticate: TAuthenticateEvent read FOnAuthenticate
       write FOnAuthenticate;
-   {$IFDEF DELPHI6_UP}
-   property OnAuthenticateEx: TAuthenticateExEvent read FOnAuthenticateEx
+{$IFDEF DELPHI6_UP}
+    property OnAuthenticateEx: TAuthenticateExEvent read FOnAuthenticateEx
       write FOnAuthenticateEx;
-     property OnPutProperty: TOnPutPropertyEvent read FOnPutProperty write FOnPutProperty;
-   {$ENDIF}
+    property OnPutProperty: TOnPutPropertyEvent read FOnPutProperty write
+      FOnPutProperty;
+{$ENDIF}
+    property OnBeforeDownload: TOnBeforeDownloadEvent read FOnBeforeDownload
+      write FOnBeforeDownload;
     property OnBeginningTransaction: TBeginningTransactionEvent read
       FBeginningTransaction write FBeginningTransaction;
     property OnCodeInstallProblem: TOnCodeInstallProblemEvent read
@@ -625,8 +655,9 @@ type
       FOnGetBindInfo write FOnGetBindInfo;
     property OnGetBindInfoEx: TOnGetBindInfoExEvent read
       FOnGetBindInfoEx write FOnGetBindInfoEx;
-    property OnGetSerializedClientCertContext: TOnGetClientCertEvent read FOnGetClientCert
-       write FOnGetClientCert;
+    property OnGetSerializedClientCertContext: TOnGetClientCertEvent read
+      FOnGetClientCert
+      write FOnGetClientCert;
     property OnGetRootSecurityId: TOnGetRootSecurityIdEvent
       read FOnGetRootSecurityId write FOnGetRootSecurityId;
     property OnGetWindow: TGetWindowEvent read FGetWindow write
@@ -662,7 +693,7 @@ type
     property Range: TRange read FRange write FRange;
     property Security: TSecurity read FSecurity write FSecurity;
     property TimeOut: Integer read FTimeOut write FTimeOut default 0;
-    property Url: WideString read FUrl write FUrl;
+    property Url: string read FUrl write FUrl;
     property UserAgent: string read FUserAgent write FUserAgent;
     property UserName: string read FUserName write FUserName;
     property UseSystemDownloadFolder: boolean read FUseSystemDownloadFolder write
@@ -671,9 +702,9 @@ type
       False;
   end;
 
-    TIEDownload = class(TCustomIEDownload)
-      published
-    end;
+  TIEDownload = class(TCustomIEDownload)
+  published
+  end;
 
 var
   ThreadStatusDesc: array[TThreadStatus] of string = ('Running', 'Suspended',
@@ -684,7 +715,6 @@ implementation
 uses
   IEDownloadStrings, EwbUrl, IEDownloadTools, Forms
 {$IFDEF DELPHI6_UP}, StrUtils{$ENDIF};
-
 
 {TInfoData---------------------------------------------------------------------}
 
@@ -734,15 +764,15 @@ begin
   hInternet := InternetOpen(PChar(FullUserAgent), INTERNET_OPEN_TYPE_DIRECT,
     nil, nil, 0);
   if hInternet <> nil then
-  try
-    Result := InternetSetOption(hInternet,
-      INTERNET_OPTION_PER_CONNECTION_OPTION,
-      @intList, dwBufSize);
-    Result := Result and InternetSetOption(hInternet, INTERNET_OPTION_REFRESH,
-      nil, 0);
-  finally
-    InternetCloseHandle(hInternet)
-  end;
+    try
+      Result := InternetSetOption(hInternet,
+        INTERNET_OPTION_PER_CONNECTION_OPTION,
+        @intList, dwBufSize);
+      Result := Result and InternetSetOption(hInternet, INTERNET_OPTION_REFRESH,
+        nil, 0);
+    finally
+      InternetCloseHandle(hInternet)
+    end;
 end;
 {End of Proxy Settings-----------------------------------------------------------}
 
@@ -787,16 +817,14 @@ begin
   if Assigned(FSender.FOnAuthenticate) then
     FSender.FOnAuthenticate(Self, hwnd, aUser, aPwd, Result);
   if aUser <> EmptyStr then
-    szUserName := WideStringToLPOLESTR(aUser)
+    szUserName := WidestringToLPOLESTR(aUser)
   else
     szUserName := nil;
   if aPwd <> EmptyStr then
-    szPassWord := WideStringToLPOLESTR(aPwd)
+    szPassWord := WidestringToLPOLESTR(aPwd)
   else
     szPassWord := nil;
 end;
-
-
 
 {IHttpNegotiate Interface
 Implemented by a client application to provide support for HTTP negotiations}
@@ -817,10 +845,10 @@ var
   x, Len: Integer;
   ActExists: TFileExistsOption;
 begin
-  ActExists:= FSender.FFileExistsOption;
-  tmpNewName:= '';
+  ActExists := FSender.FFileExistsOption;
+  tmpNewName := '';
   dwReserved := 0;
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
   begin
     Result := E_ABORT;
     binding.Abort;
@@ -847,7 +875,7 @@ begin
         FSender.FOnFileExists(ActExists, BscbInfo.infFileName, tmpNewName);
 
       if tmpNewName = EmptyStr then
-        tmpNewName:= TimeToStr(now) + '_' + BscbInfo.infFileName;
+        tmpNewName := TimeToStr(now) + '_' + BscbInfo.infFileName;
       case ActExists of
         feOverwrite:
           begin
@@ -910,8 +938,9 @@ E_INVALIDARG The parameter is invalid.}
 var
   Len: Cardinal;
   S: string;
+  tmpName: string;
 begin
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
   begin
     Result := E_ABORT;
     binding.Abort;
@@ -919,20 +948,20 @@ begin
   end;
   Result := S_OK;
   if (QueryInfo(HTTP_QUERY_CUSTOM, Len) and (Len = 0)) {file size = 0}
-    or (QueryInfo(HTTP_QUERY_CONTENT_LENGTH, Len) and (Len = 0)) {file size = 0}
-    or (dwResponseCode >= 400) then {An Error}
+  or (QueryInfo(HTTP_QUERY_CONTENT_LENGTH, Len) and (Len = 0)) {file size = 0}
+  or (dwResponseCode >= 400) then {An Error}
   begin
     Result := E_ABORT;
     if Assigned(FSender.FOnError) then
       FSender.FOnError(dwResponseCode,
         ResponseCodeToStr(dwResponseCode));
   end;
-
   begin {Publish the event}
     if Assigned(FSender.FOnResponse) then
       Result := FSender.FOnResponse(Self, dwResponseCode,
         szResponseHeaders, szRequestHeaders, szAdditionalRequestHeaders);
-    if FSender.FDownloadTo <> dtNormal then
+    if (FSender.FDownloadTo = dtDownloadToFile)
+      or (FSender.FDownloadTo = dtDownloadToCache) then
     begin
       Result := S_OK;
       Exit;
@@ -944,22 +973,34 @@ begin
       {'Partial Content'}
       if (S = 'bytes') or (dwResponseCode = 206) then
       begin {Create an output file as a stream back from where we finished}
-        fsOutputFile := TFileStream.Create(DoSaveFileAs, fmOpenReadWrite);
-        fsOutputFile.Seek(0, soFromEnd);
+        tmpName := DoSaveFileAs;
+        if tmpName <> EmptyStr then
+        begin
+          fsOutputFile := TFileStream.Create(tmpName, fmOpenReadWrite);
+          fsOutputFile.Seek(0, soFromEnd);
+        end;
       end
       else
       begin {'Create an output file as a stream from range begin 0'}
         // not needed
-        fsOutputFile := TFileStream.Create(DoSaveFileAs, fmCreate);
-        BscbInfo.infRangeBegin := 0;
+        tmpName := DoSaveFileAs;
+        if tmpName <> EmptyStr then
+        begin
+          fsOutputFile := TFileStream.Create(tmpName, fmCreate);
+          BscbInfo.infRangeBegin := 0;
+        end;
       end;
     end
     else
     begin {Here we create the file}
       if (FSender.FDownloadMethod = dmFile) then
       begin
-        fsOutputFile := TFileStream.Create(DoSaveFileAs, fmCreate);
-        fsOutputFile.Seek(0, soFromBeginning);
+        tmpName := DoSaveFileAs;
+        if tmpName <> EmptyStr then
+        begin
+          fsOutputFile := TFileStream.Create(tmpName, fmCreate);
+          fsOutputFile.Seek(0, soFromBeginning);
+        end;
       end;
     end
   end;
@@ -983,6 +1024,8 @@ var
   Len: Integer;
 begin
   pdwReserved := 0;
+  if Assigned(FSender.FOnGetBindInfoEx) then
+    FSender.FOnGetBindInfoEx(Self, grfBINDF, pbindinfo, grfBINDF2);
   grfBINDF := BscbInfo.infBindF_Value; {Insert our options.}
   grfBINDF2 := BscbInfo.infBindF2_Value; {Insert our options 2.}
   with pbindinfo do {Lets play with our options.}
@@ -1020,7 +1063,7 @@ begin
       BINDVERB_PUT: {Perform an HTTP PUT operation. The data to put should be
         specified in the stgmedData member of the BINDINFO structure.}
         if BscbInfo.infPutFileName <> EmptyStr then
-        begin {Create a process to put a file}
+        begin
           PutFile := TFileStream.Create(BscbInfo.infPutFileName,
             fmOpenRead);
           try
@@ -1071,8 +1114,6 @@ begin
       IUnknown(unkForRelease) := Self; {Set the IUnknown interface}
     end;
   end;
-  if Assigned(FSender.FOnGetBindInfoEx) then
-    FSender.FOnGetBindInfoEx(Self, grfBINDF, pbindinfo, grfBINDF2);
   Result := S_OK;
 end;
 
@@ -1136,6 +1177,7 @@ begin
             PutFile.Free;
           end;
         end;
+
       BINDVERB_POST: {Perform an HTTP POST operation.
         The data to be posted should be specified in the stgmedData
         member of the BINDINFO structure.}
@@ -1185,7 +1227,7 @@ function TBSCB.GetPriority(out nPriority): HRESULT;
 {Returns S_OK if this is successful or E_INVALIDARG if the pnPriority parameter is invalid.}
 begin {if you want to set priority you should implement SetPriority in your application}
   Result := S_OK;
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
     binding.Abort
 end;
 
@@ -1201,34 +1243,98 @@ var
   Data: PByte;
   BufL, dwRead, dwActuallyRead: Cardinal;
 begin
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
     binding.Abort
   else
   begin
+
     if Assigned(FSender.FOnDataAvailableInfo) then
       FSender.FOnDataAvailableInfo(Self, grfBSCF,
         DataAvalibleToStr(grfBSCF) {, FormatEtc});
+
     if Assigned(FBSCBTimer) then {reset our timer.}
     begin
       FBSCBTimer.Enabled := False;
       FBSCBTimer.Enabled := True;
-    end; {http://msdn.microsoft.com/en-us/library/ms775135(VS.85).aspx}
-    {Values from the BSCF enumeration are passed to the client
-     in IBindStatusCallback::OnDataAvailable to indicate the
-     type of data that is available.}
+    end;
 
-         {Identify the first call to OnDataAvailable for a given bind operation.}
     if (grfBSCF = grfBSCF or BSCF_FIRSTDATANOTIFICATION) then
-    begin {We started getting data}
-      if (StreamInterface = nil) and (stgmed.tymed = TYMED_ISTREAM) then
-        StreamInterface := IStream(stgmed.stm);
+    begin
+
+      if (fOutStream = nil) and (stgmed.tymed = TYMED_ISTREAM) then
+        fOutStream := IStream(stgmed.stm);
       if Assigned(m_pPrevBSCB) and not Assigned(fsOutputFile)
-        and (FSender.FDownloadMethod = dmFile) then
-      try {We will try to create output stream for the data package}
-        // not needed
-        fsOutputFile := TFileStream.Create(DoSaveFileAs, fmCreate);
-        BscbInfo.infRangeBegin := 0;
-      except on EFCreateError do
+        and (BscbInfo.infFileName <> '') then
+        try
+          //TODO: check for resume
+          fsOutputFile := TFileStream.Create(DoSaveFileAs, fmCreate);
+          BscbInfo.infRangeBegin := 0;
+        except on EFCreateError do
+          begin
+            Binding.Abort;
+            Result := E_FAIL;
+            Exit;
+            fsOutputFile.Free;
+          end;
+        end;
+    end;
+    dwRead := dwSize - FTotalRead;
+    dwActuallyRead := 0;
+    if (dwRead > 0) then
+      repeat
+        Data := AllocMem(dwRead + 1);
+        fOutStream.Read(Data, dwRead, @dwActuallyRead);
+        BufL := dwActuallyRead;
+        if Assigned(FSender.FOnDataAvailable) then
+        begin
+          FSender.FOnDataAvailable(self, Data, BufL);
+        end;
+        if (BscbInfo.infFileName <> '') and Assigned(fsOutputFile) then
+        begin
+          fsOutputFile.WriteBuffer(Data^, BufL);
+        end
+        else if Assigned(Stream) then
+          Stream.WriteBuffer(Data^, BufL);
+        Inc(FTotalRead, dwActuallyRead);
+        FreeMem(Data);
+      until dwActuallyRead = 0;
+  end;
+  Result := S_OK;
+  {if (grfBSCF = grfBSCF or BSCF_FIRSTDATANOTIFICATION) then
+  begin
+    if (fOutStream = nil) and (stgmed.tymed = TYMED_ISTREAM) then
+      fOutStream := IStream(stgmed.stm);
+    if Assigned(m_pPrevBSCB) and not Assigned(fsOutputFile)
+     //and (BscbInfo.infFileName <> '')
+      then
+     // and (FSender.FDownloadMethod = dmFile) then
+    try
+     fsOutputFile := TFileStream.Create(DoSaveFileAs, fmCreate);
+      BscbInfo.infRangeBegin := 0;
+    except on EFCreateError do
+      begin
+        Binding.Abort;
+        Result := E_INVALIDARG;
+        if Assigned(FSender.FOnError) then
+          FSender.FOnError(GetLastError, SysErrorMessage(GetLastError));
+        fsOutputFile.Free;
+        Exit;
+      end;
+    end;
+  end;
+  dwRead := dwSize - FTotalRead;
+  dwActuallyRead := 0;
+  if (dwRead > 0) then
+    repeat
+      Data := AllocMem(dwRead + 1); //to fix stack overflow
+      fOutStream.Read(Data, dwRead, @dwActuallyRead);
+      BufL := dwActuallyRead;
+      if Assigned(FSender.FOnDataAvailable) then
+        FSender.FOnDataAvailable(Self, Data, Bufl);
+      try
+        Stream.WriteBuffer(Data^, Bufl);
+      except
+        on EWriteError do
         begin
           Binding.Abort;
           Result := E_INVALIDARG;
@@ -1238,32 +1344,11 @@ begin
           Exit;
         end;
       end;
-    end;
-    dwRead := dwSize - FTotalRead; {Calculate how much ...}
-    dwActuallyRead := 0;
-    if (dwRead > 0) then
-      repeat
+
+      if (FSender.FDownloadMethod = dmFile) and Assigned(fsOutputFile) then
+      begin
         try
-          Data := AllocMem(dwRead + 1); //to fix stack overflow
-        except
-          on EOutOfMemory do
-          begin
-            Binding.Abort;
-            Result := E_INVALIDARG;
-            if Assigned(FSender.FOnError) then
-              FSender.FOnError(GetLastError, SysErrorMessage(GetLastError));
-            fsOutputFile.Free;
-            Exit;
-          end;
-        end;
-        StreamInterface.Read(Data, dwRead, @dwActuallyRead);
-        BufL := dwActuallyRead;
-        {Publish the event with the data}
-        if Assigned(FSender.FOnDataAvailable) then
-          FSender.FOnDataAvailable(Self, Data, Bufl);
-        {Fill out the stream (the total stream will be publish on StreamComplete)}
-        try
-          Stream.WriteBuffer(Data^, Bufl);
+          fsOutputFile.WriteBuffer(Data^, bufl);
         except
           on EWriteError do
           begin
@@ -1273,30 +1358,14 @@ begin
               FSender.FOnError(GetLastError, SysErrorMessage(GetLastError));
             fsOutputFile.Free;
             Exit;
-          end;
+          end
         end;
-        {Fill out the output file}
-        if (FSender.FDownloadMethod = dmFile) and Assigned(fsOutputFile) then
-        begin
-          try
-            fsOutputFile.WriteBuffer(Data^, bufl);
-          except
-            on EWriteError do
-            begin
-              Binding.Abort;
-              Result := E_INVALIDARG;
-              if Assigned(FSender.FOnError) then
-                FSender.FOnError(GetLastError, SysErrorMessage(GetLastError));
-              fsOutputFile.Free;
-              Exit;
-            end
-          end;
-        end;
-        Inc(FTotalRead, dwActuallyRead);
-        FreeMem(Data); {Free the memory for the data package}
-      until dwActuallyRead = 0;
-  end;
-  Result := S_OK;
+      end;
+      Inc(FTotalRead, dwActuallyRead);
+      FreeMem(Data);
+    until dwActuallyRead = 0;
+end;
+Result := S_OK;}
 end;
 
 function TBSCB.OnLowResource(Reserved: DWORD): HRESULT;
@@ -1310,7 +1379,7 @@ function TBSCB.OnObjectAvailable(const IID: TGUID; punk: IUnknown): HRESULT;
 {Returns S_OK if this is successful or E_INVALIDARG if one or more parameters are invalid.}
 begin
   Self._AddRef;
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
     binding.Abort;
   Result := S_OK;
 end;
@@ -1326,7 +1395,7 @@ var
   bAbort: Boolean;
   tmpElapsed, iFileSize: integer;
 begin
-  if FSender.FCancel then
+  if (FSender.FCancel) and (Binding <> nil) then
     Binding.Abort
   else
   begin
@@ -1335,7 +1404,7 @@ begin
     Status := ResponseCodeToStr(ulStatusCode);
     if (ulProgress > ulProgressMax) then
       ulProgressMax := ulProgress;
-    iFileSize:= ulProgressMax;
+    iFileSize := ulProgressMax;
     FSender.FFileSize := ulProgressMax;
     {For a download manager}
     if Assigned(m_pPrevBSCB) then
@@ -1350,10 +1419,8 @@ begin
       m_pPrevBSCB.OnProgress(ulProgress, ulProgressMax, ulStatusCode,
         szStatusText);
     end;
-
     case ulStatusCode of
-      BINDSTATUS_CONTENTDISPOSITIONATTACH: ;
-      BINDSTATUS_REDIRECTING: {Damn, we are o the move (redirecting)}
+      BINDSTATUS_REDIRECTING: {redirecting}
         begin
           FRedirect := True;
           FSender.FServerAddress := szStatusText;
@@ -1420,10 +1487,27 @@ begin
 
     if Assigned(FSender.FOnProgress) then {Publish the event}
       FSender.FOnProgress(Self, ulProgress {+ BscbInfo.infRangeBegin},
-        ulProgressMax {+ BscbInfo.infRangeBegin}, ulStatusCode, iFileSize, szStatusText,
+        ulProgressMax {+ BscbInfo.infRangeBegin}, ulStatusCode, iFileSize,
+          szStatusText,
         Downloaded, Elapsed, Speed, RemainingTime, Status, Percent);
   end;
   Result := S_OK;
+end;
+
+function TBSCB.GetFileNameFromUrl(Url: string): string;
+var
+  Ut: TUrl;
+begin
+  Ut := TUrl.Create(Url);
+  try
+    Ut.CrackUrl(Url, ICU_ESCAPE);
+    if AnsiPos('.', Ut.ExtraInfo) = 0 then
+      Result := FSender.FDefaultUrlFileName
+    else
+      Result := Ut.ExtraInfo;
+  finally
+    Ut.Free;
+  end;
 end;
 
 function TBSCB.OnStartBinding(dwReserved: DWORD; pib: IBinding): HRESULT;
@@ -1439,28 +1523,44 @@ begin
     Result := E_FAIL
   else
   begin
+
     Result := S_OK;
     bAbort := False;
     Binding := pib; {A pointer to the IBinding interface}
     Binding._AddRef; {To be released on StopBinding}
     {We will try to get the file size using query info}
-    QueryInfo(HTTP_QUERY_CONTENT_LENGTH, BscbInfo.inFFileSize);
-    if Assigned(m_pPrevBSCB) then {For the download manager}
+    QueryInfo(HTTP_QUERY_CONTENT_LENGTH, BscbInfo.infFileSize);
+    QueryInfoFileName;
+    if Assigned(FSender.FOnBeforeDownload) then
+      FSender.FOnBeforeDownload(BscbInfo, BscbInfo.infUrl, BscbInfo.infFileName,
+        BscbInfo.infFileExt, BscbInfo.infHost, BscbInfo.infDownloadFolder,
+        BscbInfo.infFileSize, bAbort);
+
+    {For the download manager}
+    FSender.FFileName := BscbInfo.infFileName;
+    FSender.FDownloadFolder := BscbInfo.infDownloadFolder;
+    if Assigned(m_pPrevBSCB) then
       m_pPrevBSCB.OnStopBinding(HTTP_STATUS_OK, nil);
 
-    QueryInfoFileName; // to remove
+    {Remove file name which is not needed for stream}
     case FSender.FDownloadMethod of
       dmStream: BscbInfo.infFileName := EmptyStr;
-      {Remove file name which is not needed for stream}
       dmFile:
-        begin {Try # 3}
-          if (BscbInfo.infFileName = EmptyStr) and (not FSender.bRenamed) and
-            (BscbInfo.infFileName <> QueryInfoFileName) then
-            BscbInfo.infFileName := QueryInfoFileName;
+        begin {Try # 2}
+          if (BscbInfo.infFileName = EmptyStr) and (FSender.FDownloadTo =
+            dtMoniker) then
+            BscbInfo.infFileName := GetFileNameFromUrl(FSender.FUrl)
+          else
+          begin
+            if (BscbInfo.infFileName = EmptyStr) and (not FSender.bRenamed) and
+              (BscbInfo.infFileName <> GetFileNameFromUrl(BscbInfo.infUrl)) then
+              BscbInfo.infFileName := GetFileNameFromUrl(BscbInfo.infUrl);
+          end;
         end;
     end;
     if Assigned(FSender.FOnStartBinding) then
-      FSender.FOnStartBinding(Self, bAbort, Binding);
+      FSender.FOnStartBinding(Self, bAbort, Binding, BscbInfo.infFileName,
+        BscbInfo.infFileSize);
     if bAbort then
     begin {Note: We are still in busy state until OnStopBinding!!}
       Result := E_FAIL; {Do not use Binding.Abort! Just send E_FAIL}
@@ -1478,7 +1578,8 @@ var
   szResult: POLEStr;
   HR: System.HRESULT;
 begin //OK
-  if FSender.FDownloadTo <> dtNormal then
+  if (FSender.FDownloadTo = dtDownloadToFile)
+    or (FSender.FDownloadTo = dtDownloadToCache) then
   begin
     Result := S_OK;
     Exit;
@@ -1507,13 +1608,9 @@ begin //OK
     if Assigned(FSender.FOnError) then
       FSender.FOnError(HRESULT, ResponseCodeToStr(HRESULT));
   end;
-
   if Assigned(FSender.FOnStopBinding) then
     FSender.FOnStopBinding(Self, HRESULT, szError);
-
   Result := HRESULT;
-  Binding._Release; {Release the binding we called on StartBinding}
-
   FSender.FState := sStopped;
   if Assigned(FSender.FOnStateChange) then
     FSender.FOnStateChange(FSender.FState);
@@ -1603,6 +1700,7 @@ begin
 end;
 
 {IHttpSecurity}
+
 function TBSCB.OnSecurityProblem(dwProblem: DWORD): HResult;
 {RPC_E_RETRY The calling application should continue or retry the download.
 S_FALSE The calling application should open a dialog box to warn the user.
@@ -1615,17 +1713,19 @@ begin
     Result := S_FALSE;
 end;
 
-function TBSCB.GetSerializedClientCertContext(out ppbCert: Byte; var pcbCert: DWORD): HResult; stdcall;
+function TBSCB.GetSerializedClientCertContext(out ppbCert: Byte; var pcbCert:
+  DWORD): HResult; stdcall;
 begin
-   if Assigned(FSender.FOnGetClientCert) then
+  if Assigned(FSender.FOnGetClientCert) then
     Result := FSender.FOnGetClientCert(Self, ppbCert, pcbCert)
   else
     Result := S_FALSE;
 end;
 {$IFDEF DELPHI6_UP}
+
 function TBSCB.AuthenticateEx(out phwnd: HWND; out pszUsername,
   pszPassword: LPWSTR; var pauthinfo: AUTHENTICATEINFO): HResult; stdcall;
- var
+var
   aUser, aPwd: WideString;
   tmpHWND: HWND;
 begin
@@ -1635,13 +1735,13 @@ begin
   aPwd := EmptyStr;
   if Assigned(FSender.FOnAuthenticateEx) then
     FSender.FOnAuthenticateEx(Self, tmpHWND, aUser, aPwd,
-       pauthinfo, Result);
+      pauthinfo, Result);
   if aUser <> EmptyStr then
-    pszUserName := WideStringToLPOLESTR(aUser)
+    pszUserName := WidestringToLPOLESTR(aUser)
   else
     pszUserName := nil;
   if aPwd <> EmptyStr then
-    pszPassWord := WideStringToLPOLESTR(aPwd)
+    pszPassWord := WidestringToLPOLESTR(aPwd)
   else
     pszPassWord := nil;
 end;
@@ -1651,10 +1751,10 @@ function TBSCB.PutProperty(mkp: MONIKERPROPERTY; val: LPCWSTR): HResult;
  such as a MIME handler, to get properties about the moniker
  being handled.}
 begin
-   if Assigned(FSender.FOnPutProperty) then
-     Result := FSender.FOnPutProperty(Self, mkp, val)
-   else
-  Result := E_NOTIMPL;
+  if Assigned(FSender.FOnPutProperty) then
+    Result := FSender.FOnPutProperty(Self, mkp, val)
+  else
+    Result := E_NOTIMPL;
 end;
 {$ENDIF}
 
@@ -1665,8 +1765,11 @@ var
   dwReserved: DWORD;
 begin
   dwReserved := 0;
-  Result := Binding.GetBindResult(clsidProtocol, dwResult, szResult,
-    dwReserved);
+  if (Binding <> nil) then
+    Result := Binding.GetBindResult(clsidProtocol, dwResult, szResult,
+      dwReserved)
+  else
+    Result := E_FAIL;
   if Assigned(FSender.FOnGetBindResults) then
     FSender.FOnGetBindResults(Self, clsidProtocol, dwResult,
       szResult, ResponseCodeToStr(dwResult));
@@ -1711,8 +1814,8 @@ begin
     Reserved := 0;
     dwFlags := 0;
     BufferLength := SizeOf(Cardinal);
-    Result := not Boolean(HttpInfo.QueryInfo(dwOption or
-      HTTP_QUERY_FLAG_NUMBER, @C, BufferLength, dwFlags, Reserved));
+    Result := not Boolean(HttpInfo.QueryInfo(dwOption or HTTP_QUERY_FLAG_NUMBER,
+      @C, BufferLength, dwFlags, Reserved));
     HttpInfo := nil;
     if Result then
       Info := C;
@@ -1723,22 +1826,22 @@ end;
 
 function TBSCB.QueryInfo(dwOption: DWORD; var Info: string): Boolean;
 var
-  Buf: array[0..INTERNET_MAX_PATH_LENGTH] of char;
+  Buf: array[0..INTERNET_MAX_PATH_LENGTH] of AnsiChar;
   HttpInfo: IWinInetHttpInfo;
   BufLength, dwReserved, dwFlags: Cardinal;
 begin
-  if (Assigned(Binding) and (Binding.QueryInterface(IWinInetHttpInfo,
-    HttpInfo) = S_OK)) then
+  if (Assigned(Binding) and (Binding.QueryInterface(IWinInetHttpInfo, HttpInfo)
+    = S_OK)) then
   begin
-    Info := EmptyStr;
+    Info := '';
     dwReserved := 0;
     dwFlags := 0;
     BufLength := INTERNET_MAX_PATH_LENGTH + 1;
-    Result := not Boolean(HttpInfo.QueryInfo(dwOption, @Buf, BufLength,
-      dwFlags, dwReserved));
+    Result := not Boolean(HttpInfo.QueryInfo(dwOption, @Buf, BufLength, dwFlags,
+      dwReserved));
     HttpInfo := nil;
     if Result then
-      Info := Buf;
+      Info := string(Buf);
   end
   else
     Result := False;
@@ -1747,7 +1850,7 @@ end;
 function TBSCB.QueryInfo(dwOption: DWORD; var Info: TDateTime): Boolean;
 var
   HttpInfo: IWinInetHttpInfo;
-  SysTime: TSystemTime;
+  SysTime: TSystemtime;
   BufferLength: Cardinal;
   Reserved, dwFlags: Cardinal;
 begin
@@ -1759,7 +1862,8 @@ begin
     dwFlags := 0;
     BufferLength := SizeOf(TSystemTime);
     Result := not Boolean(HttpInfo.QueryInfo(dwOption or
-      HTTP_QUERY_FLAG_SYSTEMTIME, @SysTime, BufferLength, dwFlags, Reserved));
+      HTTP_QUERY_FLAG_SYSTEMTIME,
+      @SysTime, BufferLength, dwFlags, Reserved));
     HttpInfo := nil;
     if Result then
       Info := SystemTimeToDateTime(SysTime);
@@ -1768,7 +1872,7 @@ begin
     Result := False;
 end;
 
-function TBSCB.DoSaveFileAs: WideString;
+function TBSCB.DoSaveFileAs: string;
 begin
   if FSender.FDownloadMethod = dmFile then
   begin
@@ -1787,27 +1891,25 @@ begin
       FFileName := BscbInfo.infFileName;
       FDownloadFolder := BscbInfo.infDownloadFolder;
     end;
-    Result := FSender.FDownloadedFile
+    Result := CharReplace(FSender.FDownloadedFile, '?', '_');
+    ;
   end;
 end;
 
-function TBSCB.QueryInfoFileName: WideString;
-const {We will try to get file name using QueryInfo. We will probably fail
-  because it doesnt supported anymore by MS but its realy doesnt matter
-  what is the file name}
+function TBSCB.QueryInfoFileName: HRESULT;
+const
   CD_FILE_PARAM = 'filename=';
 var
   i: Integer;
-  sTmp: string;
+  st, sTmp: string;
   res: Boolean;
 begin
+  Result := E_FAIL;
+  sTmp := '';
   res := QueryInfo(HTTP_QUERY_CONTENT_DISPOSITION, sTmp);
   if not res then
     Exit;
-  i := 0;
-  if sTmp = EmptyStr then
-    {Content-Disposition: attachment; filename=genome.jpeg; modification-date="Wed, 12 Feb 1997 16:29:51 -0500";}
-    i := Pos(CD_FILE_PARAM, sTmp);
+  i := Pos(CD_FILE_PARAM, sTmp);
   if (i > 0) then
   begin
     sTmp := Copy(sTmp, i + Length(CD_FILE_PARAM), Length(sTmp) - i);
@@ -1819,16 +1921,16 @@ begin
     if (i > 0) then
       sTmp := Copy(sTmp, 1, i);
     if (sTmp[1] = '"') then
-      Result := Copy(sTmp, 2, Length(sTmp) - 2)
+    begin
+      st := (Copy(sTmp, 2, Length(sTmp) - 2));
+      BscbInfo.infFileName := Copy(sTmp, 2, Length(sTmp) - 2);
+    end
     else
-      Result := sTmp;
+      BscbInfo.infFileName := sTmp;
     if (Length(sTmp) > 0) then
-      Result := sTmp;
+      Result := S_OK;
   end;
-  if (Result = EmptyStr) then
-    Result := BscbInfo.infFileName
-  else
-    BscbInfo.infFileName := Result;
+  FSender.FFileName := BscbInfo.infFileName; {Return Data}
 end;
 
 function TBSCB.IsRunning: Boolean;
@@ -1839,41 +1941,46 @@ begin
     Result := False;
 end;
 
-function TBSCB.GetDisplayName: string;
-var
-  DispName: PWideChar;
+function TBSCB.GetDisplayName: PWideChar;
 begin {Expensive operation so I'll do it only once.
   For extra info use MkParseDisplayName }
-  if FSender.FDisplayName = EmptyStr then
-    FMoniker.GetDisplayName(FBindCtx, nil, DispName);
-  Result := string(DispName);
+  if IsRunning then
+    FMoniker.GetDisplayName(FBindCtx, nil, Result);
+end;
+
+function TBSCB.MkParseDisplayName(var DisplayName: PWideChar): IMoniker;
+var
+  i: cardinal;
+begin
+  UrlMon.MkParseDisplayNameEx(FBindCtx, DisplayName, i, Result);
 end;
 
 function TBSCB.CreateMoniker(szName: POLEStr; BC: IBindCtx; out mk: IMoniker;
   dwReserved: DWORD): HResult;
 begin
   szName := StringToOleStr(BscbInfo.infUrl);
-  Result := CreateURLMonikerEx(nil, szName, FMoniker, URL_MK_UNIFORM {URL_MK_LEGACY});
+  Result := CreateURLMonikerEx(nil, szName, FMoniker, URL_MK_UNIFORM
+    {URL_MK_LEGACY});
 end;
 
 function TBSCB.MonikerBindToStorage(Mk: IMoniker; BC: IBindCtx; BSC:
   IBindStatusCallback;
-  const iid: TGUID; out pvObj {$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
+  const iid: TGUID; out pvObj{$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
 begin
   Mk := FMoniker;
   BC := FBindCtx;
   BSC := Self;
-  Result := Mk.BindToStorage(BC, nil, IStream, StreamInterface);
+  Result := Mk.BindToStorage(BC, nil, IStream, fOutStream);
 end;
 
 function TBSCB.MonikerBindToObject(Mk: IMoniker; BC: IBindCtx; BSC:
   IBindStatusCallback;
-  const iid: TGUID; out pvObj {$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
+  const iid: TGUID; out pvObj{$IFNDEF DELPHI8_UP}: Pointer{$ENDIF}): HResult;
 begin
   Mk := FMoniker;
   BC := FBindCtx;
   BSC := Self;
-  Result := Mk.BindToObject(BC, nil, IStream, StreamInterface);
+  Result := Mk.BindToObject(BC, nil, IStream, fOutStream);
 end;
 
 function TBSCB.AbortBinding: HRESULT;
@@ -1897,8 +2004,10 @@ begin {Cleaning out and free our resources}
   inherited;
 end;
 
-constructor TBSCB.Create(aSender: TCustomIEDownload; pmk: IMoniker; pbc: IBindCtx;
-  CreateSuspended: boolean);
+constructor TBSCB.Create(aSender: TCustomIEDownload; const pmk: IMoniker;
+  const pbc: IBindCtx; CreateSuspended: boolean);
+var
+  tmp: PWideChar;
 begin
   inherited Create(CreateSuspended);
   FreeOnTerminate := False;
@@ -1910,6 +2019,14 @@ begin
   FSender := aSender;
   FMoniker := pmk;
   FBindCtx := pbc;
+  if FSender.FDownloadTo = dtMoniker then
+  begin
+    FSender.FBindF := FSender.FBindF + [GetNewestVersion];
+    FSender.DoUpdate;
+    FMoniker.GetDisplayName(FBindCtx, nil, tmp);
+    FSender.FUrl := tmp;
+    FSender.ItemsManager.SessionList.Add(tmp);
+  end;
 end;
 
 procedure TBSCB.SetComponents;
@@ -1921,7 +2038,6 @@ begin {Initial all internals before the process}
   FBSCBTimer.OnTimer := TimerExpired;
   FBSCBTimer.Interval := BscbInfo.infTimeOut;
   FTimedOut := False;
-  LongTimeFormat := Frmt_Time;
   if not FSender.IsSynchronous(BscbInfo) then {We are on Asynchronous mode}
   begin
     FSender.ItemsManager.Add(Self); {Adding asynchronous items}
@@ -1951,7 +2067,7 @@ begin
   ThreadStatus := tsTerminated;
   bCanc := False;
   if Assigned(FSender.FOnTerminate) then
-    FSender.FOnTerminate(Self, ThreadID, FSender.FileName, bCanc);
+    FSender.FOnTerminate(Self, ThreadID, BscbInfo.infFileName, bCanc);
   if bCanc then
     FSender.CancelAll;
   inherited;
@@ -1971,6 +2087,11 @@ begin
   Synchronize(SetComponents);
   case FSender.FDownloadTo of
     dtNormal:
+      begin
+        Synchronize(DoConnect);
+        Synchronize(ReturnData);
+      end;
+    dtMoniker:
       begin
         Synchronize(DoConnect);
         Synchronize(ReturnData);
@@ -2019,42 +2140,67 @@ end;
 procedure TBSCB.DoDownloadToFile;
 var
   HR: integer;
+  tmp: string;
 begin
+  tmp := BscbInfo.infDownloadFolder + BscbInfo.infFileName;
   HR := UrlMon.URLDownloadToFile(nil, Pchar(BscbInfo.infUrl),
-    PChar(BscbInfo.infDownloadFolder + BscbInfo.infFileName), 0, Self);
+    PChar(tmp), 0, Self);
   if Failed(HR) and Assigned(FSender.FOnError) then
     FSender.FOnError(GetLastError, Err_ToFile + SysErrorMessage(GetLastError))
   else if (Assigned(FSender.FOnConnect)) then
     FSender.FOnConnect(Self, HR, DL_ToFile + ResponseCodeToStr(HR));
+  FSender.ExtractDataFromFile(tmp);
   FSender.ItemsManager.Extract(Self);
 end;
 
 procedure TBSCB.DoConnect;
 var
+  Ut: TUrl;
   HR: HRESULT;
   pPrevBSCB, tmpBSC: IBindStatusCallback;
 begin
   FSender.bDone := False;
   FSender.hStop := 0;
-  HR := CreateURLMonikerEx(nil, BscbInfo.infUrl, FMoniker, URL_MK_UNIFORM {URL_MK_LEGACY});
-  if Failed(HR) and Assigned(FSender.FOnError) then
+  if FSender.FDownloadTo <> dtMoniker then
   begin
-    FSender.FOnError(GetLastError, Err_URLMEx +
-      ResponseCodeToStr(HR));
-    Exit;
-  end
-  else if (Assigned(FSender.FOnConnect)) then
-    FSender.FOnConnect(Self, HR, CreateURLMEx + ResponseCodeToStr(HR));
+    HR := CreateURLMonikerEx(nil, BscbInfo.infUrl, FMoniker, URL_MK_UNIFORM
+      {URL_MK_LEGACY});
+    if Failed(HR) and Assigned(FSender.FOnError) then
+    begin
+      FSender.FOnError(GetLastError, Err_URLMEx +
+        ResponseCodeToStr(HR));
+      Exit;
+    end
+    else if (Assigned(FSender.FOnConnect)) then
+      FSender.FOnConnect(Self, HR, CreateURLMEx + ResponseCodeToStr(HR));
 
-  HR := CreateAsyncBindCtx(0, Self, nil, FBindCtx);
-  if Failed(HR) and Assigned(FSender.FOnError) then
+    HR := CreateAsyncBindCtx(0, Self, nil, FBindCtx);
+    if Failed(HR) and Assigned(FSender.FOnError) then
+    begin
+      FSender.FOnError(GetLastError, Err_AsyncBindCtx +
+        ResponseCodeToStr(HR));
+      Exit;
+    end
+    else if (Assigned(FSender.FOnConnect)) then
+      FSender.FOnConnect(Self, HR, CreateABindCtx + ResponseCodeToStr(HR));
+  end;
+
+  FSender.FDisplayName := GetDisplayName;
   begin
-    FSender.FOnError(GetLastError, Err_AsyncBindCtx +
-      ResponseCodeToStr(HR));
-    Exit;
-  end
-  else if (Assigned(FSender.FOnConnect)) then
-    FSender.FOnConnect(Self, HR, CreateABindCtx + ResponseCodeToStr(HR));
+    if FSender.FDisplayName <> EmptyStr then
+    begin
+      BscbInfo.infUrl := FSender.FDisplayName;
+      FSender.FUrl := FSender.FDisplayName;
+    end;
+    Ut := TUrl.Create(BscbInfo.infUrl);
+    try
+      Ut.QueryUrl(BscbInfo.infUrl);
+      BscbInfo.infFileName := Ut.Document;
+      BscbInfo.infHost := Ut.HostName;
+    finally
+      Ut.Free;
+    end;
+  end;
 
   HR := RegisterBindStatusCallback(FBindCtx, Self, pPrevBSCB, 0);
   if Failed(HR) and Assigned(pPrevBSCB) then
@@ -2070,8 +2216,7 @@ begin
         m_pPrevBSCB._AddRef;
         FBindCtx._AddRef;
         if (Assigned(FSender.FOnConnect)) then
-          FSender.FOnConnect(Self, HR, Reg_BSCB +
-            ResponseCodeToStr(HR));
+          FSender.FOnConnect(Self, HR, Reg_BSCB + ResponseCodeToStr(HR));
       end
       else if Assigned(FSender.FOnError) then
         FSender.FOnError(GetLastError, Err_RegBSCB
@@ -2081,12 +2226,8 @@ begin
   else if (Assigned(FSender.FOnConnect)) then
     FSender.FOnConnect(Self, HR, Reg_BSCB +
       ResponseCodeToStr(HR));
-
   FSender.hStop := CreateEvent(nil, True, False, nil);
-  FSender.FDisplayName := GetDisplayName;
-
-  HR := FMoniker.BindToStorage(FBindCtx, nil, IStream, StreamInterface);
-  FMoniker._AddRef;
+  HR := FMoniker.BindToStorage(FBindCtx, nil, IStream, fOutStream);
   if Failed(HR) and Assigned(FSender.FOnError) then
   begin
     FSender.FOnError(GetLastError, Err_BindToSt +
@@ -2095,7 +2236,6 @@ begin
   end
   else if (Assigned(FSender.FOnConnect)) then
     FSender.FOnConnect(Self, HR, Bind_To_St + ResponseCodeToStr(HR));
-
   repeat
     try
       if FSender.WaitForProcess(FSender.hStop, FSender.FStartTick,
@@ -2105,9 +2245,8 @@ begin
         FSender.FOnError(E_FAIL, Err_Proc_Ev);
       raise;
     end;
-  until (FSender.FCancel) or (FSender.bDone) {and (stream = nil)}
-  {or (BscbInfo.infIndex = 0)};
-
+  until (FSender.FCancel) or (FSender.bDone)
+    {and (stream = nil)}{or (BscbInfo.infIndex = 0)};
   HR := RevokeBindStatusCallback(FBindCtx, pPrevBSCB);
   if Failed(HR) then
     HR := RevokeBindStatusCallback(FBindCtx, tmpBSC);
@@ -2115,6 +2254,7 @@ begin
     FSender.FOnError(HR, Err_Revoke + ResponseCodeToStr(HR))
   else if (Assigned(FSender.FOnConnect)) then
     FSender.FOnConnect(Self, HR, Revoke_BSCB + ResponseCodeToStr(S_OK));
+
   if FSender.FActiveConnections = 0 then
     FSender.FBusy := False;
   if not FSender.IsSynchronous(BscbInfo) then {We are on asynchronous mode}
@@ -2201,13 +2341,23 @@ end;
 constructor TCustomIEDownload.Create(AOwner: TComponent);
 begin
   inherited;
+{$IFDEF DELPHI7_UP}
+  // TO Do:  W1000 Symbol 'GetLocaleFormatSettings' is deprecated: 'Use TFormatSettings.Create(Locale)'
+  GetLocaleFormatSettings(SysLocale.DefaultLCID, FFormatSettings);
+  FFormatSettings.LongTimeFormat := Frmt_Time;
+  // FFormatSettings:= TFormatSettings.Create('');  //use default locale
+  FFormatSettings.TimeSeparator := '_'; {For the feRename}
+{$ELSE}
+  FOldTimeSep := TimeSeparator;
+  LongTimeFormat := Frmt_Time;
   TimeSeparator := '_'; {For the feRename}
+{$ENDIF}
   FAbout := IED_INFO;
   hProcess := 0;
   bDone := False;
   bCancelAll := False;
   FAdditionalHeader := TStringlist.Create;
-  FAdditionalHeader.Add('Content-Type: application/x-www-form-BindInfoFd ');
+  FAdditionalHeader.Add('Content-Type: application/x-www-form-urlencoded ');
   FBindF := [Asynchronous, AsyncStorage, PullData, NoWriteCache,
     GetNewestVersion];
   FBindF2 := [ReadDataOver4GB];
@@ -2255,6 +2405,9 @@ end;
 
 destructor TCustomIEDownload.Destroy;
 begin
+{$IFNDEF DELPHI7_UP}
+  TimeSeparator := FOldTimeSep;
+{$ENDIF}
   FTimeOut := 0;
   FRange.Free;
   FSecurity.Free;
@@ -2274,24 +2427,27 @@ end;
 
 procedure TCustomIEDownload.Cancel;
 begin
-  if (not FBusy) or (FState <> sBusy) then Exit;
-  FCancel:= True;
+  if (not FBusy) or (FState <> sBusy) then
+    Exit;
+  FCancel := True;
   Application.ProcessMessages;
 end;
 
 procedure TCustomIEDownload.Reset;
 begin
-  if (FState = sBusy) then Exit;
-  FCancel:= False;
-  bCancelAll:= False;
+  if (FState = sBusy) then
+    Exit;
+  FCancel := False;
+  bCancelAll := False;
   Application.ProcessMessages;
 end;
 
 procedure TCustomIEDownload.CancelAll;
 begin
-  if (not FBusy) or (FState <> sBusy) then Exit;
-  bCancelAll:= True;
-  FCancel:= True;
+  if (not FBusy) or (FState <> sBusy) then
+    Exit;
+  bCancelAll := True;
+  FCancel := True;
   Application.ProcessMessages;
 end;
 
@@ -2348,7 +2504,6 @@ begin
         Inc(FBindInfoOption_Value, AcardBindInfoOption_Values[i]);
 end;
 
-
 procedure TCustomIEDownload.Update_BindF2_Value;
 const
   AcardBindF2_Values: array[TBindF2] of Cardinal = ($00000001,
@@ -2392,27 +2547,27 @@ begin
   Result := IEDownloadTools.CodeInstallProblemToStr(ulStatusCode);
 end;
 
-function TCustomIEDownload.CheckFileExists(const aFileName: WideString): boolean;
+function TCustomIEDownload.CheckFileExists(const aFileName: string): boolean;
 begin
   Result := FileExists(aFileName);
 end;
 
-procedure TCustomIEDownload.Go(const aUrl: WideString);
+procedure TCustomIEDownload.Go(const aUrl: string);
 begin
   GoAction(aUrl, EmptyStr, EmptyStr, nil, nil);
   if FOpenDownloadFolder then
     OpenFolder(FDownloadFolder);
 end;
 
-procedure TCustomIEDownload.Go(const aUrl: WideString; const aFileName: WideString);
+procedure TCustomIEDownload.Go(const aUrl: string; const aFileName: string);
 begin
   GoAction(aUrl, aFileName, EmptyStr, nil, nil);
   if FOpenDownloadFolder then
     OpenFolder(FDownloadFolder);
 end;
 
-procedure TCustomIEDownload.Go(const aUrl: WideString; const aFileName: WideString;
-  const aDownloadFolder: WideString);
+procedure TCustomIEDownload.Go(const aUrl: string; const aFileName: string;
+  const aDownloadFolder: string);
 begin
   GoAction(aUrl, aFileName, aDownloadFolder, nil, nil);
   if FOpenDownloadFolder then
@@ -2456,37 +2611,46 @@ begin
     OpenFolder(FDownloadFolder);
 end;
 
-procedure TCustomIEDownload.Download(const aUrl: WideString;
-  pmk: IMoniker; pbc: IBindCtx);
+procedure TCustomIEDownload.Download(const pmk: IMoniker; const pbc: IBindCtx);
 begin
-  if (aUrl <> EmptyStr) and (not bCancelAll) then
-    GoAction(aUrl, EmptyStr, EmptyStr, pmk, pbc);
-  if FOpenDownloadFolder then
-    OpenFolder(FDownloadFolder);
+  FDownloadTo := dtMoniker;
+  PrepareForStart;
+  hProcess := CreateEvent(nil, True, False, nil);
+  if (not GoInit('', FFileName, FDownloadFolder)) then
+  begin
+    PrepareForExit;
+    Exit;
+  end;
+  BS := TBSCB.Create(Self, pmk, pbc, True);
+  try
+    BS.Execute;
+    repeat
+      try
+        if WaitForProcess(hProcess, FStartTick, FTimeOut) then
+      except
+        if Assigned(FOnError) then
+          FOnError(E_FAIL, Err_Proc_Ev);
+        raise;
+      end;
+    until (FCancel) or (FActiveConnections = 0);
+  finally
+    FreeAndNil(BS);
+  end;
+  PrepareForExit;
 end;
 
-procedure TCustomIEDownload.Download(const UrlsList: TStrings;
-  pmk: IMoniker; pbc: IBindCtx);
-var
-  Idx: integer;
-begin
-  if (not bCancelAll) then
-    for Idx := 0 to UrlsList.Count - 1 do
-      if (UrlsList[Idx] <> EmptyStr) then
-        GoAction(UrlsList[Idx], EmptyStr, EmptyStr, pmk, pbc);
-  if FOpenDownloadFolder then
-    OpenFolder(FDownloadFolder);
-end;
-
-function TCustomIEDownload.GoAction(const actUrl: WideString;
-  const actFileName: WideString; const actDownloadFolder: WideString;
+function TCustomIEDownload.GoAction(const actUrl, actFileName,
+  actDownloadFolder: string;
   pmk: IMoniker; pbc: IBindCtx): boolean;
 begin
   Result := False;
   PrepareForStart;
   hProcess := CreateEvent(nil, True, False, nil);
   if (not GoInit(actUrl, actFileName, actDownloadFolder)) then
+  begin
+    PrepareForExit;
     Exit;
+  end;
   BS := TBSCB.Create(Self, pmk, pbc, True); {Creating Download Callback}
   try //Fix Deadlock?
     BS.Execute;
@@ -2506,7 +2670,7 @@ begin
   Result := True;
 end;
 
-function TCustomIEDownload.URLDownloadToCacheFile(const aUrl: WideString): WideString;
+function TCustomIEDownload.URLDownloadToCacheFile(const aUrl: string): string;
 begin
   Result := EmptyStr;
   PrepareForStart;
@@ -2526,7 +2690,7 @@ begin
   Result := FDownloadFolder;
 end;
 
-function TCustomIEDownload.UrlDownloadToFile(const aUrl: WideString): HRESULT;
+function TCustomIEDownload.UrlDownloadToFile(const aUrl: string): HRESULT;
 begin
   Result := E_FAIL;
   PrepareForStart;
@@ -2557,60 +2721,66 @@ begin
     FOnStateChange(FState);
 end;
 
-function TCustomIEDownload.GoInit(const inUrl: WideString; const inFileName:
-  WideString; const inDownloadFolder: WideString): boolean;
+function TCustomIEDownload.GoInit(const inUrl: string; const inFileName:
+  string; const inDownloadFolder: string): boolean;
 var
   tmpNewName: WideString;
   Act: TFileExistsOption;
 begin
-  act:= FFileExistsOption;
-  tmpNewName:= '';
+  act := FFileExistsOption;
+  tmpNewName := '';
   Result := False;
-  if inUrl = EmptyStr then
+  if FDownloadTo <> dtMoniker then
   begin
-    PrepareForExit;
-    Exit;
-  end;
-  FUrl := SetHttpProtocol(inUrl); {We pass the Address we got to the component}
-  if (FValidateUrl) and not (IsUrlValid(FUrl)) then
-  begin
-    PrepareForExit;
-    Exit;
-  end;
-  if DownloadMethod = dmFile then
-  begin
-    FDownloadFolder := SetDownloadFolder(inDownloadFolder);
-    if FDownloadFolder = EmptyStr then
+    if inUrl = EmptyStr then
     begin
       PrepareForExit;
       Exit;
     end;
-    FFileName := inFileName;
-    if (FFileName = EmptyStr) then
-      FFileName := SetFileNameFromUrl(FUrl); {First try}
-    if (CheckFileExists(FDownloadFolder + FFileName)) then
+    FUrl := SetHttpProtocol(inUrl); {We pass the Address we got to the component}
+    if (FValidateUrl) and not (IsUrlValid(FUrl)) then
     begin
-      if Assigned(FOnFileExists) then
-        FOnFileExists(Act, FDownloadFolder + FFileName, tmpNewName);
-      case Act of
-        feSkip:
-          begin
-            PrepareForExit;
-            Exit;
-          end;
-        feRename:
-          begin
-           if tmpNewName = EmptyStr then
-            tmpNewName:= TimeToStr(now) + '_' + FFileName;
-            FFileName := tmpNewName;
-            bRenamed := True;
-          end;
-        feOverwrite: FBindF := FBindF +
-          [GetNewestVersion];
-      end;
+      PrepareForExit;
+      Exit;
     end;
+    ItemsManager.SessionList.Add(FUrl);
+    if FDownloadMethod = dmFile then
+    begin
+      FDownloadFolder := SetDownloadFolder(inDownloadFolder);
+      if FDownloadFolder = EmptyStr then
+        Exit;
+      FFileName := inFileName;
+      if (FFileName = EmptyStr) then
+        FFileName := SetFileNameFromUrl(FUrl); {First try}
+      if (CheckFileExists(FDownloadFolder + FFileName)) then
+      begin
+        if Assigned(FOnFileExists) then
+          FOnFileExists(Act, FDownloadFolder + FFileName, tmpNewName);
+        case Act of
+          feSkip:
+            begin
+              PrepareForExit;
+              Exit;
+            end;
+          feRename:
+            begin
+{$IFDEF DELPHI7_UP}
+              if tmpNewName = EmptyStr then
+                tmpNewName := TimeToStr(now, FFormatSettings) + '_' + FFileName;
+{$ELSE}
+              if tmpNewName = EmptyStr then
+                tmpNewName := TimeToStr(now) + '_' + FFileName;
+{$ENDIF}
+              FFileName := tmpNewName;
+              bRenamed := True;
+            end;
+          feOverwrite: FBindF := FBindF + [GetNewestVersion];
+        end;
+      end;
+    end
+    else
+      FBindF := FBindF + [GetNewestVersion];
   end;
-  ItemsManager.SessionList.Add(FUrl);
   DoUpdate;
   Result := True;
 end;
@@ -2683,7 +2853,7 @@ begin
   Result := IEDownloadTools.FormatTickToTime(TickCount);
 end;
 
-function TCustomIEDownload.IsUrlValid(const isUrl: WideString): Boolean;
+function TCustomIEDownload.IsUrlValid(const isUrl: string): Boolean;
 var
   U: TUrl;
 begin
@@ -2754,15 +2924,15 @@ begin {Contains values that specify an action, such as an HTTP request, to be pe
   end;
 end;
 
-procedure TCustomIEDownload.SetFileName(const Value: WideString);
+procedure TCustomIEDownload.SetFileName(const Value: string);
 begin
   FFileName := Value;
 end;
 
-function TCustomIEDownload.SetFileNameFromUrl(const aUrl: WideString): WideString;
+function TCustomIEDownload.SetFileNameFromUrl(const aUrl: string): string;
 var
   Ut: TUrl;
-  sTmp1, sTmp2: WideString;
+  sTmp1, sTmp2: string;
 begin
   if FDownloadMethod = dmFile then
   begin
@@ -2786,7 +2956,7 @@ begin
   end;
 end;
 
-procedure TCustomIEDownload.ExtractDataFromFile(const aFileName: WideString);
+procedure TCustomIEDownload.ExtractDataFromFile(const aFileName: string);
 begin
   FDownloadedFile := aFileName;
   FFileName := ExtractFileName(aFileName);
@@ -2828,7 +2998,8 @@ begin
   Update_BindF2_Value;
 end;
 
-procedure TCustomIEDownload.SetBindInfoOption(const Value: TBindInfoOptions_Options);
+procedure TCustomIEDownload.SetBindInfoOption(const Value:
+  TBindInfoOptions_Options);
 begin
   FBindInfoOption_ := Value;
   Update_BindInfoOptions_Value;
@@ -2847,7 +3018,7 @@ begin
   FDownloadMethod := Value;
 end;
 
-function TCustomIEDownload.SetHttpProtocol(const aUrl: WideString): WideString;
+function TCustomIEDownload.SetHttpProtocol(const aUrl: string): string;
 type {Insert http to an address like bsalsa.com }
   TProtocols = array[1..23] of string;
 const
@@ -2869,24 +3040,22 @@ begin
   Result := 'http://' + aUrl;
 end;
 
-function TCustomIEDownload.SetDownloadFolder(const aDownloadFolder: WideString):
-  WideString;
+function TCustomIEDownload.SetDownloadFolder(const aDownloadFolder: string):
+  string;
 begin
   if (FDownloadMethod = dmFile) then
   begin
     Result := aDownloadFolder;
     if (Result = EmptyStr) then
       Result := ExtractFilePath(Application.ExeName) + DL_DIR;
-{$IFDEF DELPHI6_UP}
-    if not DirectoryExists(Result) then
-{$ENDIF}
-    try
-      CreateDir(Result);
-    except
-      if Assigned(FOnError) then
-        FOnError(GetLastError, SysErrorMessage(GetLastError) +
-          Err_Creating_Dir);
-    end;
+    if Result <> EmptyStr then
+      try
+        ForceDirectories(Result);
+      except
+        if Assigned(FOnError) then
+          FOnError(GetLastError, SysErrorMessage(GetLastError) +
+            Err_Creating_Dir);
+      end;
   end;
 end;
 
@@ -2895,9 +3064,9 @@ begin
   Result := IEDownloadTools.ResponseCodeToStr(dwResponse);
 end;
 
-function TCustomIEDownload.WideStringToLPOLESTR(const Source: WideString): POleStr;
+function TCustomIEDownload.WideStringToLPOLESTR(const Source: string): POleStr;
 begin
-  Result := IEDownloadTools.WideStringToLPOLESTR(Source);
+  Result := IEDownloadTools.WidestringToLPOLESTR(Source);
 end;
 
 initialization

@@ -1,6 +1,6 @@
 //****************************************************
-//                     IEParser                      *
-//                For Delphi 5 - 2009                *
+//                     TIEParser                     *
+//                     For Delphi 5 to XE            *
 //                Freeware Component                 *
 //                       by                          *
 //                                                   *
@@ -19,12 +19,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DocUMENTATION. [YOUR Name] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DocUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SystemS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SystemS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SystemS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRES OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -38,12 +38,12 @@ You may use, change or modify the component under 4 conditions:
 
 unit IEParser;
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 interface
 
 uses
-  ShlObj, ComObj, Windows, Mshtml_Ewb, ActiveX, Classes;
+  Dialogs, ShlObj, ComObj, Windows, Mshtml_Ewb, ActiveX, Classes;
 
 type
   TProxySettings = class(TPersistent)
@@ -92,7 +92,7 @@ type
   TParserState = (psBusy, psReady, psStopped); {A state for Busy status}
 
   TOnParseErrorEvent = procedure(Sender: TObject; const ErrorCode: integer; const
-   Url, stError: string) of object;
+    Url, stError: string) of object;
   TOnParseDocumentEvent = procedure(Sender: TObject; const Res: HRESULT; stMessage: string) of object;
   TOnStatusTextEvent = procedure(Sender: TObject; const Text: string) of object;
   TOnDocInfoEvent = procedure(Sender: TObject; const Text: string) of object;
@@ -102,8 +102,7 @@ type
     OleVariant; NoShade: Boolean; Element: TElementInfo) of object;
   TOnDIVEvent = procedure(Sender: TObject; Align: string; NoWrap: Boolean;
     Element: TElementInfo) of object;
-  TOnScriptEvent = procedure(Sender: Tobject; Source, HtmlFor, Event, Text: string;
-    Defer: Boolean; Element: TElementInfo) of object;
+  TOnScriptEvent = procedure(Sender: Tobject; Source: string; ScriptElement: IHTMLScriptElement; Element: TElementInfo) of object;
   TOnFormEvent = procedure(Sender: TObject; Action, Dir, Encoding, Method, Target, Name: string;
     Element: TElementInfo) of object;
   TOnMarqueeEvent = procedure(Sender: TObject; bgColor, Width, Height: OleVariant;
@@ -119,9 +118,12 @@ type
   TOnBodyEvent = procedure(Sender: TObject; Background, bgProperties: string; LeftMargin,
     TopMargin, RightMargin, BottomMargin, bgColor, Text, Link, vLink, aLink: OleVariant;
     NoWrap: Boolean; Element: TElementInfo) of object;
-  TOnImageEvent = procedure(Sender: TObject; Source, LowSrc, Vrml, DynSrc, Alt, Align,
+{  TOnImageEvent = procedure(Sender: TObject; Source, LowSrc, Vrml, DynSrc, Alt, Align,
     UseMap: string; IsMap: Boolean; Border, Loop: OleVariant; vSpace, hSpace, Width,
-    Height: Integer; Element: TElementInfo) of object;
+    Height: Integer; Element: TElementInfo) of object; }
+
+  TOnImageEvent = procedure(Sender: TObject; Source: string; ImgElement: IHTMLImgElement; Element: TElementInfo) of object;
+
   TOnAnchorEvent = procedure(Sender: TObject; hRef, Target, Rel, Rev, Urn, Methods, Name,
     Host, HostName, PathName, Port, Protocol, Search, Hash, AccessKey, ProtocolLong,
     MimeType, NameProp: string; Element: TElementInfo) of object;
@@ -134,12 +136,13 @@ type
     WIdeString; Border, BorderColor, FrameSpacing: OleVariant; Element:
     TelementInfo) of object;
   TStateChangeEvent = procedure(Sender: TObject; const State: TParserState) of object;
+  TOnStartParsingEvent = procedure(Sender: TObject; const aUrl: WideString) of object;
   TOnQueryInfoEvent = procedure(const MimeType, Encoding, Disposition: string) of object;
 
   TIEParser = class(
       TComponent,
       IUnknown,
-      Idispatch,
+      IDispatch,
       IPropertyNotifySink,
       IOleClientSite)
 
@@ -178,17 +181,18 @@ type
     FOnParseDocument: TOnParseDocumentEvent;
     FOnParseError: TOnParseErrorEvent;
     FOnStateChange: TStateChangeEvent;
+    FOnStartParsing: TOnStartParsingEvent;
     FOnStatusText: TOnStatusTextEvent;
     FParseNoFrames: Boolean;
     FProxySettings: TProxySettings;
     FScript: TOnScriptEvent;
     FParserState: TParserState;
-    FURL: string;
+    FUrl: string;
     LoadingFromString: Boolean;
     NoFramesFound: Boolean;
     StartTick: Int64;
   private
-    function UpdateDownloadControlValue: LongInt;
+    function UpdateDownloadControlValues: LongInt;
   protected
     function ProcessDoc(const aUrl: WideString): IHTMLDocument2;
     function GetContainer(out container: IOleContainer): HRESULT; stdcall;
@@ -209,7 +213,7 @@ type
     procedure DoQueryInfo(const aUrl: string);
   public
     All: IHtmlElementCollection;
-    Doc: IhtmlDocument2;
+    Doc: IHTMLDocument2;
     constructor Create(Owner: Tcomponent); override;
     destructor Destroy; override;
     procedure BeforeDestruction; override;
@@ -257,18 +261,19 @@ type
     property OnScript: TOnScriptEvent read FScript write FScript;
     property OnStateChange: TStateChangeEvent read FOnStateChange write
       FOnStateChange;
+    property OnStartParsing: TOnStartParsingEvent read FOnStartParsing write FOnStartParsing;
     property OnStatusText: TOnStatusTextEvent read FOnStatusText write FOnStatusText;
     property ParseNoFrames: Boolean read FParseNoFrames write FParseNoFrames default False;
     property ProxySettings: TProxySettings read FProxySettings write FProxySettings;
-    property URL: string read FURL write FURL;
+    property URL: string read FUrl write FUrl;
   end;
 
 
 implementation
 
 uses
-  IEConst, IEDownloadStrings, IEDownloadTools, SysUtils, IeDownloadAcc, UrlMon,
-  WinInet;
+  IEConst, IEDownloadStrings, IEDownloadTools, SysUtils, IeDownloadAcc, UrlMon, WinInet;
+
 
 function TIEParser.GetContainer(out container: IOleContainer): HRESULT;
 begin
@@ -288,7 +293,7 @@ var
 begin
   if DispId = DISPID_AMBIENT_DLCONTROL then
   begin
-    i := UpdateDownloadControlValue;
+    i := UpdateDownloadControlValues;
     PVariant(VarResult)^ := I;
     Result := S_OK;
   end
@@ -308,8 +313,7 @@ begin
     if Assigned(FOnParseError) then
       FOnParseError(Self, E_FAIL, FUrl, Err_Load_Str + ResponseCodeToStr(E_FAIL));
     Result := E_FAIL;
-    Exit;
-  end;
+  end else
   try
     if (Assigned(FOnParseDocument)) then
       FOnParseDocument(Self, S_OK, Succ_Load_Str + ResponseCodeToStr(S_OK));
@@ -370,7 +374,7 @@ begin
   Result := E_NOTIMPL;
 end;
 
-function TIEParser.UpdateDownloadControlValue: LongInt;
+function TIEParser.UpdateDownloadControlValues: LongInt;
 const
   AcardDownloadControlValues: array[TDownloadControlOption] of Cardinal =
   ($00000010, $00000020, $00000040, $00000080,
@@ -384,8 +388,7 @@ var
 begin
   j := 0;
   if (FDownloadControlOptions <> []) then
-    for i := Low(TDownloadControlOption) to High(TDownloadControlOption)
-      do
+    for i := Low(TDownloadControlOption) to High(TDownloadControlOption) do
       if (i in FDownloadControlOptions) then
         Inc(j, AcardDownloadControlValues[i]);
   Result := j;
@@ -438,12 +441,11 @@ end;
 
 procedure TIEParser.GetPageProperties;
 begin
-  if (doc <> nil) and (Assigned(Doc)) and
-    (Doc.readyState = 'complete') then
+  if (Doc <> nil) and (Assigned(Doc)) and (Doc.readyState = 'complete') then
   begin
-    try
-      if (Assigned(FOnDocInfo)) then
-      begin
+    if (Assigned(FOnDocInfo)) then
+    begin
+      try
         FOnDocInfo(Self, 'Title: ' + Doc.title);
         FOnDocInfo(Self, 'Design Mode: ' + Doc.designMode);
         FOnDocInfo(Self, 'State: ' + Doc.readyState);
@@ -452,30 +454,29 @@ begin
         FOnDocInfo(Self, 'Last Modified: ' + Doc.lastModified);
         FOnDocInfo(Self, 'URL: ' + Doc.url);
         if FHTML <> '' then
-          FOnDocInfo(Self,'Domain: ' + Doc.domain);
-        FOnDocInfo(Self,'Cookie: ' + Doc.cookie);
-        FOnDocInfo(Self,'Charset: ' + Doc.charset);
-        FOnDocInfo(Self,'Default Charset: ' + Doc.defaultCharset);
+          FOnDocInfo(Self, 'Domain: ' + Doc.domain);
+        FOnDocInfo(Self, 'Cookie: ' + Doc.cookie);
+        FOnDocInfo(Self, 'Charset: ' + Doc.charset);
+        FOnDocInfo(Self, 'Default Charset: ' + Doc.defaultCharset);
+        FOnDocInfo(Self, 'File Updated Date: ' + Doc.fileUpdatedDate);
+        FOnDocInfo(Self, 'Security: ' + Doc.security);
+        FOnDocInfo(Self, 'Protocol: ' + Doc.protocol);
+        FOnDocInfo(Self, 'Name Property: ' + Doc.nameProp);
+        FOnDocInfo(Self, 'Path Name: ' + Doc.location.pathname);
+        FOnDocInfo(Self, 'Port: ' + Doc.location.port);
+        FOnDocInfo(Self, 'Protocol: ' + Doc.location.protocol);
+        FOnDocInfo(Self, 'Host: ' + Doc.location.host);
+        FOnDocInfo(Self, 'Hash: ' + Doc.location.hash);
+        FOnDocInfo(Self, 'Search: ' + Doc.location.search);
+        FOnDocInfo(Self, 'Language: ' + Doc.body.language);
+        FOnDocInfo(Self, 'Lang: ' + Doc.body.lang);
         {I Disabled the following because it my cause AV on some sites}
         //FOnDocInfo(Self,'MimeType: ' + Doc.MimeType);
         //FOnDocInfo(Self,'File Size: '+ Doc.fileSize);
         //FOnDocInfo(Self,'File Created Date: '+ Doc.fileCreatedDate);
         //FOnDocInfo(Self,'File Modified Date: '+ Doc.fileModifiedDate);
-        FOnDocInfo(Self,'File Updated Date: ' + Doc.fileUpdatedDate);
-        FOnDocInfo(Self,'Security: ' + Doc.security);
-        FOnDocInfo(Self,'Protocol: ' + Doc.protocol);
-        FOnDocInfo(Self,'Name Property: ' + Doc.nameProp);
-        FOnDocInfo(Self,'Path Name: ' + Doc.location.pathname);
-        FOnDocInfo(Self,'Port: ' + Doc.location.port);
-        FOnDocInfo(Self,'Protocol: ' + Doc.location.protocol);
-        FOnDocInfo(Self,'Host: ' + Doc.location.host);
-        FOnDocInfo(Self,'Hash: ' + Doc.location.hash);
-        FOnDocInfo(Self,'Search: ' + Doc.location.search);
-        FOnDocInfo(Self,'Language: ' + Doc.Body.language);
-        FOnDocInfo(Self,'Lang: ' + Doc.Body.lang);
+      except
       end;
-    except
-      Exit;
     end;
   end;
 end;
@@ -484,7 +485,7 @@ function TIEParser.LoadUrlFromMoniker(const aUrl: WideString): HRESULT;
 var
   FMoniker: IMoniker;
   FBindCtx: IBindCTX;
-  HR: HResult;
+  HR: HRESULT;
 begin
   HR := CreateURLMonikerEx(nil, PWideChar(aUrl), FMoniker, URL_MK_UNIFORM {URL_MK_LEGACY});
   if Failed(HR) and Assigned(FOnParseError) then
@@ -513,10 +514,11 @@ function TIEParser.ProcessDoc(const aUrl: WideString): IHTMLDocument2;
 var
   C: Integer;
   ConnectionPoint: IConnectionPoint;
-  HR: HResult;
+  HR: HRESULT;
 begin
   LoadingFromString := False;
-
+  if Assigned(FOnStartParsing) then
+      FOnStartParsing(Self, aUrl);
   HR := CoCreateInstance(CLASS_HtmlDocument, nil, CLSCTX_INPROC_SERVER,
     IHtmlDocument2, Doc);
   if Failed(HR) and Assigned(FOnParseError) then
@@ -555,43 +557,51 @@ procedure TIEParser.DoQueryInfo(const aUrl: string);
 var
   hInet: HINTERNET;
   hConnect: HINTERNET;
-  infoBuffer: array[0..1024] of char;
+  infoBuffer: array[0..1024] of Char;
   dwReserved: DWORD;
   bufLen: DWORD;
   lbResult: LongBool;
 begin
-  hInet := InternetOpen(PChar('TIEMultiDownload'),
+  hInet := InternetOpen('TDownload',
     INTERNET_OPEN_TYPE_PRECONFIG_WITH_NO_AUTOPROXY, nil, nil, 0);
-  hConnect := InternetOpenUrl(hInet, PChar(Url), nil, 0, INTERNET_FLAG_NO_UI, 0);
-  if not Assigned(hConnect) then
+  if hInet <> nil then
   begin
-    Exit;
-  end
-  else
-  begin
-    dwReserved := 0;
-    bufLen := Length(infoBuffer);
+    try
+      hConnect := InternetOpenUrl(hInet, PChar(Url), nil, 0, INTERNET_FLAG_NO_UI, 0);
+      if Assigned(hConnect) then
+      begin
+        try
+          dwReserved := 0;
+          bufLen := Length(infoBuffer);
 
-    lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_TYPE, @infoBuffer[0], bufLen, dwReserved);
-    if lbResult then
-      FMimeType := infoBuffer
-    else
-      FMimeType := EmptyStr;
-    lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_ENCODING, @infoBuffer, bufLen, dwReserved);
-    if lbResult then
-      FEncoding := Encoding
-    else
-      FEncoding := EmptyStr;
-    lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_DISPOSITION, @infoBuffer, bufLen, dwReserved);
-    if lbResult then
-      FDisposition := disposition
-    else
-      FDisposition := EmptyStr;
-    if Assigned(FOnQueryInfo) then
-      FOnQueryInfo(FMimeType, FEncoding, FDisposition);
-    InternetCloseHandle(hConnect);
+          lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_TYPE, @infoBuffer[0], bufLen, dwReserved);
+          if lbResult then
+            FMimeType := infoBuffer
+          else
+            FMimeType := EmptyStr;
+
+          lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_ENCODING, @infoBuffer, bufLen, dwReserved);
+          if lbResult then
+            FEncoding := Encoding
+          else
+            FEncoding := EmptyStr;
+
+          lbResult := HttpQueryInfo(hConnect, HTTP_QUERY_CONTENT_DISPOSITION, @infoBuffer, bufLen, dwReserved);
+          if lbResult then
+            FDisposition := Disposition
+          else
+            FDisposition := EmptyStr;
+
+          if Assigned(FOnQueryInfo) then
+            FOnQueryInfo(FMimeType, FEncoding, FDisposition);
+        finally
+          InternetCloseHandle(hConnect);
+        end;
+      end;
+    finally
+      InternetCloseHandle(hInet);
+    end;
   end;
-  InternetCloseHandle(hInet);
 end;
 
 procedure TIEParser.Initialize;
@@ -623,23 +633,28 @@ begin
 end;
 
 procedure TIEParser.Parse(const aUrl: WideString);
+ function ContainsAboutBlank(const s: string): Boolean;
+  begin
+    Result := Pos('about:blank', LowerCase(s)) > 0;
+  end;
+
 var
   E: IHtmlElement;
   X: Integer;
   Msg: TMsg;
-  v, u: OLEVariant;
+  v, u: OleVariant;
   ParseTime, NoFramesContent, Us: string;
-  HR: HResult;
+  HR: HRESULT;
 begin
   Initialize;
-  FURL := aUrl;
+  FUrl := aUrl;
   ProcessDoc(aUrl);
   NoFramesContent := '';
-  if FURL <> '' then
+  if FUrl <> '' then
   begin
     HR := S_OK;
-    if IEDownloadTools.IsValidURL(FURL) then
-      HR := LoadUrlFromMoniker(FURL);
+    if IEDownloadTools.IsValidURL(FUrl) then
+      HR := LoadUrlFromMoniker(FUrl);
     if Failed(HR) and Assigned(FOnParseError) then
       FOnParseError(Self, GetLastError, FUrl, Err_Load_Mon + ResponseCodeToStr(HR))
     else if (Assigned(FOnParseDocument)) then
@@ -661,36 +676,36 @@ begin
     begin
       if ((Msg.Message = WM_USER_STARTWALKING) and (Msg.hWnd = 0)) then
       begin
-        BoolWorking := System.False;
+        BoolWorking := False;
         All := Doc.Get_all;
         if (All <> nil) and (All.length <= 4) then
         begin
           if Assigned(FOnParseError) then
             FOnParseError(Self, E_FAIL, FUrl, Doc_Error + ResponseCodeToStr(E_FAIL));
-           Exit;
+          Exit;
         end;
         if (All <> nil) and not FDownloadOnly then
           for x := 0 to All.length - 1 do
           begin
-            E := All.Item(x, 0) as IHtmlElement;
+            E := All.item(x, 0) as IHTMLElement;
             with Element do
             begin
-              ClassName := E.ClassName;
-              Id := E.Id;
-              TagName := E.TagName;
-              Title := E.Title;
-              Language := E.Language;
-              SourceIndex := E.SourceIndex;
-              RecordNumber := E.RecordNumber;
-              Lang := E.Lang;
-              OffsetLeft := E.OffsetLeft;
-              OffsetTop := E.OffsetTop;
-              OffsetWidth := E.OffsetWidth;
-              OffsetHeight := E.OffsetHeight;
-              InnerHtml := E.InnerHtml;
-              InnerText := E.InnerText;
-              OuterHtml := E.OuterHtml;
-              OuterText := E.OuterText;
+              ClassName := E.className;
+              Id := E.id;
+              TagName := E.tagName;
+              Title := E.title;
+              Language := E.language;
+              SourceIndex := E.sourceIndex;
+              RecordNumber := E.recordNumber;
+              Lang := E.lang;
+              OffsetLeft := E.offsetLeft;
+              OffsetTop := E.offsetTop;
+              OffsetWidth := E.offsetWidth;
+              OffsetHeight := E.offsetHeight;
+              InnerHtml := E.innerHtml;
+              InnerText := E.innerText;
+              OuterHtml := E.outerHtml;
+              OuterText := E.outerText;
             end;
             if Assigned(FElement) then
               FElement(Self, Element);
@@ -698,157 +713,152 @@ begin
             case StrToCase(E.TagName, ['FRAMESET', 'FRAME', 'NOFRAMES', 'A', '!',
               'COMMENT', 'IMG', 'BODY', 'BASE', 'BASEFONT', 'FONT', 'META', 'MARQUEE',
                 'FORM', 'SCRIPT', 'DIV', 'HR', 'BR']) of
-              0:
+              0: // FRAMESET
                 begin
                   if Assigned(FOnFrameSet) then
-                    with All.Item(x, 0) as IHtmlFrameSetElement do
+                    with All.item(x, 0) as IHTMLFrameSetElement do
                       FOnFrameSet(Self, Rows, Cols, FrameBorder, Name,
                         Border, BorderColor, FrameSpacing, Element);
-
                 end;
-              1:
+              1: // FRAME
                 begin
                   if Assigned(FOnFrame) then
                   begin
                     v := E.GetAttribute('Name', 0);
                     u := E.GetAttribute('Src', 0); // JohnS ('Source' -> 'Src')
                     Us := u;
-                    if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                    if LoadingFromString and ContainsAboutBlank(Us) then
                       Delete(Us, 1, 11);
                     FOnFrame(Self, Us, v, Element);
                   end;
                 end;
-              2:
+              2: // NOFRAMES
                 begin
                   NoFramesContent := E.InnerHtml;
                   if Assigned(FOnNoFrame) then
                     FOnNoFrame(Self, Element);
                 end;
-              3:
+              3: // A
                 begin
                   if Assigned(FAnchor) then
-                    with All.Item(x, 0) as IHtmlAnchorElement do
+                    with All.item(x, 0) as IHTMLAnchorElement do
                     begin
                       Us := hRef;
-                      if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                      if LoadingFromString and ContainsAboutBlank(Us) then
                         Delete(Us, 1, 11);
-                      FAnchor(Self, Us, Target, Rel, Rev, Urn, Methods,
-                        Name, Host, HostName, PathName, Port, Protocol,
+                      FAnchor(Self, Us, target, rel, rev, Urn, Methods,
+                        name, host, hostname, pathname, port, protocol,
                         Search, Hash, AccessKey,
                         ProtocolLong, MimeType, NameProp, Element);
                     end;
                 end;
-              4 or 5:
+              4 or 5: // !, COMMENT
                 begin
                   if Assigned(FComment) then
-                    with All.Item(x, 0) as IHtmlCommentElement do
+                    with All.item(x, 0) as IHTMLCommentElement do
                       FComment(Self, Text, Element)
                   else
                     if (E.TagName = 'IMG') and Assigned(FImage) then
-                      with All.Item(x, 0) as IHtmlImgElement do
+                      with All.item(x, 0) as IHtmlImgElement do
                       begin
                         Us := Src;
-                        if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                        if LoadingFromString and ContainsAboutBlank(Us) then
                           Delete(Us, 1, 11);
-                        FImage(Self, Us, LowSrc, Vrml, DynSrc,
-                          Alt, Align, UseMap, IsMap, Border, Loop,
-                          vSpace, hSpace, Width, Height, Element);
+                        FImage(Self, Us, All.item(x, 0) as IHTMLImgElement, Element);
                       end;
                 end;
 
-              6:
+              6: // IMG
                 begin
                   if Assigned(FImage) then
-                    with All.Item(x, 0) as IHtmlImgElement do
+                     with All.item(x, 0) as IHTMLImgElement do
                     begin
                       Us := Src;
-                      if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                      if LoadingFromString and ContainsAboutBlank(Us) then
                         Delete(Us, 1, 11);
-                      FImage(Self, Us, LowSrc, Vrml, DynSrc,
-                        Alt, Align, UseMap, IsMap, Border, Loop,
-                        vSpace, hSpace, Width, Height, Element);
+                      FImage(Self, Us, All.item(x, 0) as IHTMLImgElement, Element);
                     end;
                 end;
-              7:
+              7: // BODY
                 begin
                   if Assigned(FBody) then
-                    with All.Item(x, 0) as IHtmlBodyElement do
+                    with All.item(x, 0) as IHTMLBodyElement do
                       FBody(Self, Background, bgProperties,
                         LeftMargin, TopMargin, RightMargin, BottomMargin, bgColor, Text, Link,
                         vLink, aLink, NoWrap, Element);
                 end;
-              8:
+              8: // BASE
                 begin
                   if Assigned(FBase) then
-                    with All.Item(x, 0) as IHtmlBaseElement do
+                    with All.item(x, 0) as IHTMLBaseElement do
                     begin
                       Us := hRef;
-                      if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                      if LoadingFromString and ContainsAboutBlank(Us) then
                         Delete(Us, 1, 11);
                       FBase(Self, Us, Target, Element);
                     end;
                 end;
-              9:
+              9: // BASEFONT
                 begin
                   if Assigned(FBaseFont) then
-                    with All.Item(x, 0) as IHtmlBaseFontElement do
-                      FBaseFont(Self, Color, Face, Size, Element);
+                    with All.item(x, 0) as IHTMLBaseFontElement do
+                      FBaseFont(Self, color, face, size, Element);
                 end;
-              10:
+              10: // FONT
                 begin
                   if Assigned(FFont) then
-                    with All.Item(x, 0) as IHtmlFontElement do
-                      FFont(Self, Color, Size, Face, Element);
+                    with All.item(x, 0) as IHTMLFontElement do
+                      FFont(Self, color, size, face, Element);
                 end;
-              11:
+              11: // META
                 begin
                   if Assigned(FMeta) then
-                    with All.Item(x, 0) as IHtmlMEtaElement do
-                      FMeta(Self, HttpEquiv, Content, Name, URL,
-                        Charset, Element);
+                    with All.item(x, 0) as IHTMLMetaElement do
+                      FMeta(Self, httpEquiv, content, name, url,
+                        charset, Element);
                 end;
-              12:
+              12: // MARQUEE
                 begin
                   if Assigned(FMarquee) then
-                    with All.Item(x, 0) as IHtmlMarqueeElement do
+                    with All.item(x, 0) as IHTMLMarqueeElement do
                       FMarquee(Self, bgColor, Width, Height, Direction, Behavior,
                         ScrollAmount, ScrollDelay, Loop, vSpace, hSpace, Element);
                 end;
-              13:
+              13: // FORM
                 begin
                   if Assigned(FForm) then
-                    with All.Item(x, 0) as IHtmlFormElement do
+                    with All.item(x, 0) as IHTMLFormElement do
                       FForm(Self, Action, Dir, Encoding, Method,
                         Target, Name, Element);
                 end;
-              14:
+              14: // SCRIPT
                 begin
                   if Assigned(FScript) then
-                    with All.Item(x, 0) as IHtmlScriptElement do
+                    with All.item(x, 0) as IHTMLScriptElement do
                     begin
                       Us := Src;
-                      if LoadingFromString and (Pos('about:blank', LowerCase(Us)) > 0) then
+                      if LoadingFromString and ContainsAboutBlank(Us) then
                         Delete(Us, 1, 11);
-                      FScript(Self, Us, HtmlFor, Event, Text, Defer, Element);
+                      FScript(Self, Us, All.item(x, 0) as IHTMLScriptElement, Element);
                     end;
 
                 end;
-              15:
+              15: // DIV - containers
                 begin
                   if Assigned(FDiv) then
-                    with All.Item(x, 0) as IHtmlDivElement do
+                    with All.item(x, 0) as IHTMLDivElement do
                       FDiv(Self, Align, NoWrap, Element);
                 end;
-              16:
+              16: // HR - horizontal rule
                 begin
-                  if Assigned(FHR) then
-                    with All.Item(x, 0) as IHtmlHrElement do
+                  if Assigned(FHr) then
+                    with All.item(x, 0) as IHTMLHRElement do
                       FHr(Self, Align, Color, Width, Size, NoShade, Element);
                 end;
-              17:
+              17: // BR - line break
                 begin
-                  if Assigned(FBR) then
-                    with All.Item(x, 0) as IHtmlBrElement do
+                  if Assigned(FBr) then
+                    with All.item(x, 0) as IHTMLBRElement do
                       FBr(Self, Clear, Element);
 
                 end;
@@ -860,7 +870,7 @@ begin
         DispatchMessage(Msg);
     end;
   end;
-  FURL := '';
+  FUrl := '';
   if (NoFramesFound) and (ParseNoFrames) then
   begin
     FHtml := NoFramesContent;
@@ -877,9 +887,9 @@ end;
 procedure TIEParser.Finalize;
 begin
   FHtml := '';
-  CoUninitialize;
   FBusy := False;
   FParserState := psStopped;
+  CoUninitialize;
   if Assigned(FOnStateChange) then
     FOnStateChange(Self, FParserState);
 end;
@@ -923,6 +933,7 @@ end;
 
 initialization
   OleInitialize(nil);
+
 finalization
   try
     OleUninitialize;
@@ -930,4 +941,5 @@ finalization
   end;
 
 end.
+
 

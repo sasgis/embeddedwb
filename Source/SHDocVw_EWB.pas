@@ -2,9 +2,9 @@
 //                                                             *
 //                SHDocVw_EWB                                  *
 //                                                             *
-//                 For Delphi 5 - 2009                         *
+//                     For Delphi 5 to XE                      *
 //                            by                               *
-//       bsalsa - Eran Bodankin  - bsalsa@gmail.com           *
+//       bsalsa - Eran Bodankin  - bsalsa@gmail.com            *
 //                                                             *
 //                                                             *
 //  Updated versions:                                          *
@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -35,7 +35,7 @@ You may use, change or modify the component under 4 conditions:
 //$Id: SHDocVw_EWB.pas,v 1.3 2006/12/14 12:57:55 bsalsa Exp $
 
 unit SHDocVw_EWB;
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 // ************************************************************************  //
 // Type Lib: shdocvw.dll (1) EWB
 // LIBID: {EAB22AC0-30C1-11CF-A7EB-0000C05BAE0B}

@@ -34,7 +34,7 @@ unit HighLightHTML;
 interface
 
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   SysUtils, Windows, Messages, Classes, Controls, Graphics, HighLightRichSyntax;

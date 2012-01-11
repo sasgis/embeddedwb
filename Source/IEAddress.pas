@@ -1,14 +1,14 @@
 {*******************************************************}
 {                  IEAddress Component                  }
-{                          STAGE 3                      }
-{            For Delphi 5, 6, 7, 2005, 2006             }
+{                       STAGE 3                         }
+{                    For Delphi 5 to XE                 }
 {                Freeware Component                     }
 {                                                       }
 {     CONTRIBUTORS:                                     }
-{      Eran Bodankin (bsalsa) bsalsa@gmail.com         }
+{      Eran Bodankin (bsalsa)                           }
 {      Per Lindsø Larsen                                }
-{      Peter Morris (Pete@StuckIndoors.com)             }
-{      Thomas Stutz (aka smot)                          }
+{      Peter Morris                                     }
+{      Thomas Stutz                                     }
 {                                                       }
 {                       Enjoy!                          }
 {   UPDATES:                                            }
@@ -20,12 +20,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -35,7 +35,6 @@ You may use, change or modify the component under 4 conditions:
    for the benefit of the other users.
 4. Please consider donation in our web site!
 {*******************************************************************************}
-//$Id: IEAddress.pas,v 1.6 2006/12/07 11:27:31 bsalsa Exp $
 
 { Remove the dot from the define below to enable support for TFlatComboBox.
  (FlatStyle Components, All Components look like MS Money und MS Encarta)
@@ -48,7 +47,6 @@ unit IEAddress;
 interface
 
 {$I EWB.inc}
-{$I EWB_jedi.inc}
 
 uses
   ActiveX, ComCtrls, ShlObj, Windows, Messages, Classes, Controls, StdCtrls,
@@ -610,7 +608,7 @@ end;
 
 function TCustomIEAddress.IsValidURL(const URL: WideString): Boolean;
 begin
-  if UrlMon.IsValidURL(nil, PWideChar(URL), 0) = S_OK then
+  if (URL <> EmptyStr) and (UrlMon.IsValidURL(nil, PWideChar(URL), 0) = S_OK) then
     Result := True
   else
     Result := False;
@@ -620,6 +618,7 @@ function TCustomIEAddress.RemovePrefix(UrlIn, Prefix: WideString): WideString;
 var
   i, j: integer;
 begin
+  if (UrlIn = EmptyStr) then Exit;
   i := Length(Prefix);
   j := AnsiPos(Prefix, UPPERCASE(URLIn));
   if j <> 0 then
@@ -629,7 +628,8 @@ end;
 
 procedure TCustomIEAddress.ClearList;
 begin
-  Items.Clear;
+  if Items.Count > 0 then
+    Items.Clear;
 end;
 
 {$IFDEF DELPHI6_UP}
@@ -645,6 +645,7 @@ procedure TCustomIEAddress.AddToList;
 begin
   if not (csDesigning in ComponentState) then
   begin
+    if (Text = EmptyStr) then Exit;
     Text := FixUrl(Text);
     RegistryUpdate;
     CheckSecureSite;
@@ -668,8 +669,6 @@ begin
 end;
 
 function TCustomIEAddress.FixUrl(Url: string): string;
-
-
   function AnsiEndsStr(const ASubText, AText: string): Boolean;
   var
     SubTextLocation: Integer;
@@ -686,7 +685,7 @@ var
   DotPos, ipos: Integer;
 begin
   Result := Url;
-  if not AnsiEndsStr('/', Url) then
+  if (Text <> EmptyStr) and (not AnsiEndsStr('/', Url)) then
   begin
     ipos := LastDelimiter('/', Url);
     DotPos := LastDelimiter('.', Url);
@@ -701,6 +700,7 @@ var
   Found: boolean;
 begin
   Found := False;
+  if (Text = EmptyStr) then Exit;
   for i := 0 to Items.Count do
   begin
     if Text = Items.Strings[i] then
@@ -719,7 +719,7 @@ procedure TCustomIEAddress.CheckSecureSite;
     Result := AnsiSameStr(ASubText, Copy(AText, 1, Length(ASubText)));
   end;
 begin
-  if FUseSecureSiteBGColor then
+  if FUseSecureSiteBGColor and (Text = EmptyStr) then
   begin
     if AnsiStartsStr('https', Text) then
       Color := FSecureSiteBG
@@ -731,6 +731,7 @@ end;
 procedure TCustomIEAddress.LoadFromFile(FileName: WideString);
 begin
   Clear;
+  if (FileName = EmptyStr) then Exit;
   try
     Items.LoadFromFile(FileName);
   finally
@@ -739,6 +740,7 @@ end;
 
 procedure TCustomIEAddress.SaveToFile(FileName: WideString);
 begin
+  if (FileName = EmptyStr) then Exit;
   try
     Items.SaveToFile(FileName);
   finally
@@ -747,31 +749,20 @@ end;
 
 procedure TCustomIEAddress.TextUpdate;
 var
-  st: WideString;
+  st: string;
   bCancel: Boolean;
 begin
-  if Assigned(FEmbeddedWB) then
+  bCancel := False;
+  if Assigned(FEmbeddedWB) and FUAfterNav and (Text <> EmptyStr)then
   begin
-    st := Text;
-    bCancel := False;
-    if FUAfterNav then
-    begin
-      try
-        if FEmbeddedWB.HandleAllocated then
-          while (FEmbeddedWB.ReadyState <> READYSTATE_COMPLETE) do
-          begin
-            Forms.Application.ProcessMessages;
-          end;
-        case FTextAfterNav of
-          anLocationUrl: st := FEmbeddedWB.LocationURL;
-          anLocationName: st := FEmbeddedWB.LocationName;
-        end;
-        if Assigned(FOnUpdateText) then
-          FOnUpdateText(Self, Text, st, bCancel);
-        if not bCancel then
-          Text := st;
-      except
-      end;
+    if Assigned(FOnUpdateText) then
+      FOnUpdateText(Self, Text, st, bCancel);
+    if bCancel then
+      Text := st;
+    FEmbeddedWB.WaitWhileBusy;
+    case FTextAfterNav of
+      anLocationUrl: Text := FEmbeddedWB.LocationURL;
+      anLocationName: Text := FEmbeddedWB.LocationName;
     end;
   end;
 end;
@@ -794,6 +785,7 @@ begin
           CanvasCtrl.Control := Self;
           Rect := ClientRect;
           CanvasCtrl.Brush.Style := bsClear; //bsSolid;
+
           with CanvasCtrl do
           begin
             if BorderColor <> clNone then
@@ -806,7 +798,7 @@ begin
             end
             else
             begin
-              Brush.Color := Color;
+              Brush.Color := clwhite; //Color;
               if FHasBorder then
               begin
                 FrameRect(Rect);
@@ -818,7 +810,7 @@ begin
           InflateRect(Rect, 0, -1);
           if DroppedDown then
             with CanvasCtrl do
-            begin
+            begin //the button backround
               Brush.Color := FButtonPressedColor;
               FillRect(Rect);
               Rect.Right := Rect.Left + 6;
@@ -848,15 +840,26 @@ begin
           Rect := ClientRect;
           Position := Rect.Right - 10;
           RectT := Rect.Top;
-          with CanvasCtrl do
-          begin
-            Moveto(Position + 0, RectT + 10);
-            LineTo(Position + 5, RectT + 10);
-            MoveTo(Position + 1, RectT + 11);
-            LineTo(Position + 4, RectT + 11);
-            MoveTo(Position + 2, RectT + 12);
-            LineTo(Position + 3, RectT + 12);
-          end;
+          if not DroppedDown then
+            with CanvasCtrl do
+            begin //Draw the arrow Head Down
+              Moveto(Position + 0, RectT + 10);
+              LineTo(Position + 5, RectT + 10);
+              MoveTo(Position + 1, RectT + 11);
+              LineTo(Position + 4, RectT + 11);
+              MoveTo(Position + 2, RectT + 12);
+              LineTo(Position + 3, RectT + 12);
+            end
+          else
+            with CanvasCtrl do
+            begin //Draw the arrow Head Up
+              MoveTo(Position + 3, RectT + 10);
+              LineTo(Position + 2, RectT + 10);
+              MoveTo(Position + 4, RectT + 11);
+              LineTo(Position + 1, RectT + 11);
+              MoveTo(Position + 5, RectT + 12);
+              LineTo(Position + 0, RectT + 12);
+            end;
         finally
           CanvasCtrl.Free;
         end;
@@ -866,13 +869,13 @@ end;
 
 procedure TCustomIEAddress.RepaintIEAddress(MouseActive: Boolean);
 var
-  Bool: boolean;
+  bCont: boolean;
 begin
-  Bool := True;
+  bCont := True;
   if Assigned(FonPaint) then
-    FOnPaint(Self, Bool);
+    FOnPaint(Self, bCont);
   try
-    if not Bool then
+    if not bCont then
     begin
       ValidateRect(EditHandle, nil);
       Refresh;
@@ -893,6 +896,7 @@ begin
     Exit;
   BorderRGN := CreateRectRGN(0, 0, Width, Height);
   BorderWidth := GetSystemMetrics(SM_CXDLGFRAME);
+
   if not FHasDropDown and not (Style in [csSimple]) then
   begin
     W := GetSystemMetrics(SM_CXVSCROLL);
@@ -910,6 +914,7 @@ var
   Bitmap: TBitmap;
   Offset: Integer;
 begin
+  if (Text = EmptyStr) then Exit;
   Offset := 16;
   if not (csDesigning in ComponentState) and DroppedDown then
   begin
@@ -953,6 +958,7 @@ var
   Icon: TIcon;
 begin
   Result := -1;
+  if (aUrl = EmptyStr) then Exit;
   try
     ShGetMalloc(Malloc);
     //If its a MS special folder
@@ -1045,6 +1051,7 @@ var
   bCancel: Boolean;
 begin
   Result := False;
+  if (URL = EmptyStr) then Exit;
   try
     bCancel := False;
     St := RemovePrefix(URL, 'HTTP://');
@@ -1072,7 +1079,9 @@ var
 begin
   Result := -1;
   bCancel := False;
-  if FShowFavicons and (not DroppedDown) and IsValidURL(Text) and
+  Application.ProcessMessages;
+  Sleep(10);
+  if (Text <> EmptyStr) and FShowFavicons and (not DroppedDown) and IsValidURL(Text) and
     (not (csDesigning in ComponentState)) then
   begin
     st := GetCacheFolder + 'favicon.ico';
@@ -1080,9 +1089,12 @@ begin
     begin
       ImgIdx := -1;
       Icon := TIcon.Create();
+      if Icon <> nil then
       try
         Icon.LoadFromFile(st);
       except
+        Icon.Free;
+        Exit;
       end;
 {$IFDEF DELPHI10_UP}
       Icon.SetSize(16, 16);
@@ -1161,7 +1173,7 @@ begin
   finally
     Free;
   end;
-  if not Assigned(FEmbeddedWB) and (TextOnLoad <> tlUserDefine) then
+  if {not Assigned(FEmbeddedWB) and }(TextOnLoad <> tlUserDefine) then
     if Items.Count <> 0 then
       Text := Trim(Items[0])
     else
@@ -1286,9 +1298,7 @@ procedure TCustomIEAddress.SetSiteHint;
 begin
   if Assigned(FEmbeddedWB) and FShowSiteHint then
   begin
-    if FEmbeddedWB.HandleAllocated then
-      while (FEmbeddedWB.ReadyState <> READYSTATE_COMPLETE) do
-        Forms.Application.ProcessMessages;
+    FEmbeddedWB.Wait;
     ShowHint := True;
     Application.HintColor := FHintColor;
     if FEmbeddedWB.LocationUrl = Text then
@@ -1311,10 +1321,10 @@ begin
             end;
           tmXP:
             begin
-              FBorderColor := clInactiveCaptionText;
-              FArrowColor := clNavy;
-              FButtonColor := $F0CAA6;
-              FButtonPressedColor := clInactiveCaptionText;
+              FBorderColor := $00B99D7F;
+              FArrowColor := $0085614D;
+              FButtonColor := $00FCD5C2;
+              FButtonPressedColor := $00F1A680;
             end;
           tmSilver:
             begin
@@ -1336,19 +1346,39 @@ begin
   end;
 end;
 
-procedure TCustomIEAddress.SetTextOnLd();
+function GetIEHomePage: string;
+var
+  IEHomePage: string;
 begin
-  if Assigned(FEmbeddedWB) then
-  begin
-    case FTextOnLoad of
-      tlIELastVisited: ;
-      tlIEHomePage: Text := FEmbeddedWB.GetIEHomePage;
-      tlBlank: FEmbeddedWB.AssignEmptyDocument;
-      tlUserDefine: Text := FTextOnShow;
-    end;
-    if FNavOnLoad then
-      FEmbeddedWB.Go(Text);
+  IEHomePage := '';
+  with TRegistry.Create do
+  try
+    RootKey := HKEY_CURRENT_USER;
+    OpenKey('\Software\Microsoft\Internet Explorer\Main', False);
+    IEHomePage := ReadString('Start Page');
+    CloseKey;
+  finally
+    Free;
   end;
+  Result := IEHomePage;
+end;
+
+procedure TCustomIEAddress.SetTextOnLd;
+begin
+  case FTextOnLoad of
+    tlIELastVisited: ;
+    tlIEHomePage: Text := GetIEHomePage;
+    tlBlank:
+      begin
+        if Assigned(FEmbeddedWB) then
+          FEmbeddedWB.AssignEmptyDocument
+        else
+          Text := EmptyStr;
+      end;
+    tlUserDefine: Text := FTextOnShow;
+  end;
+  if Assigned(FEmbeddedWB) and FNavOnLoad then
+    FEmbeddedWB.Go(Text);
 end;
 
 procedure TCustomIEAddress.SetModified(Value: Boolean);
@@ -1477,8 +1507,8 @@ destructor TCustomIEAddress.Destroy;
 begin
   Application.HintColor := FOldHintColor;
   Color := FOldBGColor;
-  FImageList.free;
-  FCanvas.free; //Ray
+  FImageList.Free;
+  FCanvas.Free;
   inherited Destroy;
 end;
 
@@ -1509,12 +1539,12 @@ begin
     end;
     CalculateRGN;
     GetTypedURLs;
+    SetTextOnLd;
     Text := FixUrl(Text);
     CheckSecureSite;
     TextUpdate;
     SetSiteHint;
     AddFaviconToImageList;
-    SetTextOnLd();
   end;
 end;
 
@@ -1617,6 +1647,8 @@ begin
 end;
 
 procedure TCustomIEAddress.WndProc(var Message: TMessage);
+var
+  i: integer;
 begin
   inherited;
   case Message.Msg of
@@ -1633,15 +1665,17 @@ begin
           SetActiveWindow(Parent.Handle);
       end;
 
-    WM_Paint:
+    WM_PAINT:
       begin
         if not (csReading in ComponentState) then
         begin
           ControlStyle := ControlStyle + [csOpaque];
           RepaintIEAddress(False);
           SetTextPosition;
-          FImageList.Draw(FCanvas, IconLeft, IconTop,
-            GetImageIndex(Text, False), True);
+          i := GetImageIndex(Text, False);
+          if i > 0 then
+            FImageList.Draw(FCanvas, IconLeft, IconTop,
+              GetImageIndex(Text, False), True);
         end;
       end;
   end;
@@ -1671,7 +1705,7 @@ end;
 
 procedure TCustomIEAddress.Change;
 // var
-// Key: Word;
+ //Key: Word;
 begin
   PostMessage(Handle, CB_SHOWDROPDOWN, 0, 0);
   FImageList.Draw(FCanvas, IconLeft, IconTop, GetImageIndex(Text, False), True);
@@ -1702,8 +1736,8 @@ begin
         FImageList.Draw(FCanvas, 4, 3, FSelImageIndex, True);
         if FNavOnSelected and Assigned(FEmbeddedWB) then
           FEmbeddedWB.Go(Text);
-        AddToList;
       end;
+      AddToList;
     end;
        // PostMessage(EditHandle, EM_SETREADONLY, 0, 0);
        // PostMessage(EditHandle, EM_SETSEL, 0, -1);
@@ -1712,20 +1746,20 @@ end;
 
 procedure TCustomIEAddress.DblClick;
 var
-  Rec: TRect;
+  Rect: TRect;
   pt: TPoint;
 begin
   inherited;
   GetCursorPos(pt);
-  PostMessage(Handle, CB_GETDROPPEDCONTROLRECT, 0, longint(@rec));
-  if ((pt.x >= Rec.Left) and (pt.x <= Rec.Right)
-    and (pt.y >= Rec.Top) and (pt.y <= Rec.Bottom)) then
+  PostMessage(Handle, CB_GETDROPPEDCONTROLRECT, 0, longint(@Rect));
+  {if ((pt.x >= Rect.Left) and (pt.x <= Rect.Right)
+    and (pt.y >= Rect.Top) and (pt.y <= Rect.Bottom)) then }
   begin
     fSelImageIndex := FImageIndex;
     fImageList.Draw(FCanvas, 4, 3, fSelImageIndex, True);
-    AddToList;
     if FNavOnDblClk and Assigned(FEmbeddedWB) then
       FEmbeddedWB.Go(Text);
+    AddToList;
   end;
   PostMessage(EditHandle, EM_SETREADONLY, 0, 0);
   PostMessage(EditHandle, EM_SETSEL, 0, -1);
@@ -1735,7 +1769,9 @@ procedure TCustomIEAddress.KeyDown(var Key: Word; Shift: TShiftState);
 var
   FListIndex: integer;
   bCancel: Boolean;
+  newText: string;
 begin
+  newText := Text;
   inherited;
   bCancel := False;
   if (DroppedDown) then
@@ -1769,65 +1805,68 @@ begin
       end;
     end
     else
-      if ((ssAlt in Shift) and ((Key = VK_DOWN) or (Key = VK_UP))) or
-        (Key = VK_ESCAPE) then
+      if NewText <> Text then
       begin
-        Key := VK_CLEAR;
-        PostMessage(Handle, CB_SHOWDROPDOWN, 0, 0);
-        PostMessage(EditHandle, EM_SETREADONLY, 0, 0);
-        PostMessage(EditHandle, EM_SETSEL, 0, -1);
+        if ((ssAlt in Shift) and ((Key = VK_DOWN) or (Key = VK_UP))) or
+          (Key = VK_ESCAPE) then
+        begin
+          Key := VK_CLEAR;
+          PostMessage(Handle, CB_SHOWDROPDOWN, 0, 0);
+          PostMessage(EditHandle, EM_SETREADONLY, 0, 0);
+          PostMessage(EditHandle, EM_SETSEL, 0, -1);
+        end
+        else
+          if (not (ssAlt in Shift)) and (Key = VK_DOWN) then
+          begin
+            Key := VK_CLEAR;
+            FListIndex := SendMessage(Handle, CB_GETCURSEL, 0, 0);
+            if FListIndex >= 24 then
+              Exit;
+            PostMessage(Handle, CB_SETCURSEL, (FListIndex + 1), 0);
+            PostMessage(EditHandle, EM_SETSEL, -1, 0);
+            FSelImageIndex := FImageIndex;
+            FImageList.Draw(FCanvas, 4, 3, FSelImageIndex, True);
+            if FNavOnSelected and Assigned(FEmbeddedWB) then
+              FEmbeddedWB.Go(Text);
+          end;
       end
       else
-        if (not (ssAlt in Shift)) and (Key = VK_DOWN) then
+        if (not (ssAlt in Shift)) and (Key = VK_UP) then
         begin
           Key := VK_CLEAR;
           FListIndex := SendMessage(Handle, CB_GETCURSEL, 0, 0);
-          if FListIndex >= 24 then
+          if FListIndex <= 0 then
             Exit;
-          PostMessage(Handle, CB_SETCURSEL, (FListIndex + 1), 0);
+          PostMessage(Handle, CB_SETCURSEL, (FListIndex - 1), 0);
           PostMessage(EditHandle, EM_SETSEL, -1, 0);
           FSelImageIndex := FImageIndex;
           FImageList.Draw(FCanvas, 4, 3, FSelImageIndex, True);
           if FNavOnSelected and Assigned(FEmbeddedWB) then
             FEmbeddedWB.Go(Text);
-        end
-        else
-          if (not (ssAlt in Shift)) and (Key = VK_UP) then
-          begin
-            Key := VK_CLEAR;
-            FListIndex := SendMessage(Handle, CB_GETCURSEL, 0, 0);
-            if FListIndex <= 0 then
-              Exit;
-            PostMessage(Handle, CB_SETCURSEL, (FListIndex - 1), 0);
-            PostMessage(EditHandle, EM_SETSEL, -1, 0);
-            FSelImageIndex := FImageIndex;
-            FImageList.Draw(FCanvas, 4, 3, FSelImageIndex, True);
-            if Assigned(FEmbeddedWB) and FNavOnSelected then
-              FEmbeddedWB.Go(Text);
-          end;
+        end;
   end
-  else //Not Droped Down
+  else //Not the Droped Down. Its the text in the ComboBox
   begin
-    if (Key = VK_RETURN) then
+    if (Key = VK_RETURN) and (NewText <> Text) then
     begin
       if Text <> '' then
       begin
         if Assigned(FOnUrlSelected) then
           FOnUrlSelected(Self, Text, bCancel);
-        if not BCancel then
+        if not bCancel then
         begin
           if FNavOnEnterKey and Assigned(FEmbeddedWB) then
             FEmbeddedWB.Go(Text);
-          AddToList;
         end;
+        AddToList;
       end;
     end
     else
-      if (Key = VK_DOWN) or ((ssAlt in Shift) and (Key = VK_DOWN)) then
+      if (NewText <> Text) and (Key = VK_DOWN) or ((ssAlt in Shift) and (Key = VK_DOWN) and (NewText <> Text)) then
       begin
         Key := VK_CLEAR;
         PostMessage(Handle, CB_GETCURSEL, 0, 0);
-                 // PostMessage(EditHandle, EM_SETREADONLY, 1, 0);
+      // PostMessage(EditHandle, EM_SETREADONLY, 1, 0);
         PostMessage(EditHandle, EM_SETSEL, -1, 0);
         PostMessage(Handle, CB_SHOWDROPDOWN, 1, 0);
         if FNavOnSelected and Assigned(FEmbeddedWB) then
@@ -1838,8 +1877,8 @@ begin
         begin
           Key := VK_CLEAR;
           Exit;
-        end
-  end
+        end;
+  end;
 end;
 
 procedure TCustomIEAddress.DragDrop(Source: TObject; X, Y: Integer);

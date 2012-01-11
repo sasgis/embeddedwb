@@ -17,12 +17,12 @@ EITHER EXPRESSED OR IMPLIED INCLUDING BUT NOT LIMITED TO THE APPLIED
 WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 YOU ASSUME THE ENTIRE RISK AS TO THE ACCURACY AND THE USE OF THE SOFTWARE
 AND ALL OTHER RISK ARISING OUT OF THE USE OR PERFORMANCE OF THIS SOFTWARE
-AND DOCUMENTATION. [YOUR NAME] DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
+AND DOCUMENTATION. BSALSA PRODUCTIONS DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE
 OR WILL OPERATE WITHOUT INTERRUPTION. THE SOFTWARE IS NOT DESIGNED, INTENDED
 OR LICENSED FOR USE IN HAZARDOUS ENVIRONMENTS REQUIRING FAIL-SAFE CONTROLS,
 INCLUDING WITHOUT LIMITATION, THE DESIGN, CONSTRUCTION, MAINTENANCE OR
 OPERATION OF NUCLEAR FACILITIES, AIRCRAFT NAVIGATION OR COMMUNICATION SYSTEMS,
-AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. VSOFT SPECIFICALLY
+AIR TRAFFIC CONTROL, AND LIFE SUPPORT OR WEAPONS SYSTEMS. BSALSA PRODUCTIONS SPECIFICALLY
 DISCLAIMS ANY EXPRESS OR IMPLIED WARRANTY OF FITNESS FOR SUCH PURPOSE.
 
 You may use, change or modify the component under 4 conditions:
@@ -70,9 +70,8 @@ type
     function LoadUrlFromMoniker: HRESULT;
     function LoadUrlFromFile: HRESULT;
 // * We only use LoadUrlFromMoniker, but we could use LoadUrlFromFile instead.
-
   public
-    HtmlElementCollection: IHtmlElementCollection;
+    HTMLElementCollection: IHTMLElementCollection;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function Go(URL: WideString): IHTMLELEMENTCollection;
@@ -81,7 +80,6 @@ type
     procedure GetLinkList(LinkList: TStrings); overload;
   published
     property OnInvoke: TInvokeEvent read FOnInvoke write FOnInvoke;
-
     property Enabled: Boolean read FEnabled write FEnabled default True;
     property About: string read fAbout write SetAbout;
   end;
@@ -99,7 +97,7 @@ var
 
 constructor TUILess.Create;
 begin
-  FAbout := 'TUILess parser  - Help & Support: http://www.bsalsa.com/';
+  FAbout := 'TUILess parser  - ' + WEB_SITE;
   FEnabled := True;
   inherited;
 end;
@@ -121,29 +119,36 @@ var
   Msg: TMsg;
   hr: HRESULT;
 begin
-  if FEnabled then
+  if not FEnabled then
+    Result := nil
+  else
   begin
     _URL := Url;
-    CoCreateInstance(CLASS_HTMLDocument, nil, CLSCTX_INPROC_SERVER, IID_IHTMLDocument2, Doc);
-    OleObject := Doc as IOleObject;
-    OleObject.SetClientSite(Self);
-    OleControl := Doc as IOleControl;
-    OleControl.OnAmbientPropertyChange(DISPID_AMBIENT_DLCONTROL);
-    CPC := Doc as IConnectionPointContainer;
-    CPC.FindConnectionPoint(IpropertyNotifySink, CP);
-    CP.Advise(self, Cookie);
-    HR := LoadUrlFromMoniker; // alternative: Hr:= LoadUrlFromFile;
-
-    if SUCCEEDED(HR) {or (HR = E_PENDING)} then
-      while (GetMessage(msg, 0, 0, 0)) do
-        if ((msg.message = WM_USER_STARTWALKING) and (msg.hwnd = 0)) then
+    if Succeeded(CoCreateInstance(CLASS_HTMLDocument, nil, CLSCTX_INPROC_SERVER, IID_IHTMLDocument2, Doc)) then
+    begin
+      OleObject := Doc as IOleObject;
+      OleObject.SetClientSite(Self);
+      OleControl := Doc as IOleControl;
+      OleControl.OnAmbientPropertyChange(DISPID_AMBIENT_DLCONTROL);
+      CPC := Doc as IConnectionPointContainer;
+      if CPC.FindConnectionPoint(IpropertyNotifySink, CP) = S_OK then
+      begin
+        if CP.Advise(Self, Cookie) = S_OK then
         begin
-          PostQuitMessage(0);
-          HtmlElementCollection := Doc.Get_all;
-          Result := HtmlElementCollection;
-        end
-        else
-          DispatchMessage(msg);
+          HR := LoadUrlFromMoniker; // alternative: Hr:= LoadUrlFromFile;
+          if Succeeded(HR) {or (HR = E_PENDING)} then
+            while (GetMessage(msg, 0, 0, 0)) do
+              if ((msg.message = WM_USER_STARTWALKING) and (msg.hwnd = 0)) then
+              begin
+                PostQuitMessage(0);
+                HtmlElementCollection := Doc.Get_all;
+                Result := HtmlElementCollection;
+              end
+              else
+                DispatchMessage(msg);
+        end;
+      end;
+    end;
   end;
 end;
 
@@ -155,7 +160,6 @@ const
   DLCTL_NO_RUNACTIVEXCTLS = $00000200;
   DLCTL_NO_DLACTIVEXCTLS = $00000400;
   DLCTL_DOWNLOADONLY = $00000800;
-
 var
   I: Integer;
 begin
@@ -191,7 +195,7 @@ begin
   begin
     if (DISPID_READYSTATE = Dispid) then
     begin
-      if SUCCEEDED((Doc as IHTMLDocument2).Invoke(DISPID_READYSTATE, GUID_null,
+      if Succeeded((Doc as IHTMLDocument2).Invoke(DISPID_READYSTATE, GUID_null,
         LOCALE_SYSTEM_DEFAULT, DISPATCH_PROPERTYGET, dp, @vresult, nil, nil)) then
         if Integer(vResult) = READYSTATE_COMPLETE then
           PostThreadMessage(GetCurrentThreadId(), WM_USER_STARTWALKING, 0, 0);
@@ -208,39 +212,41 @@ begin
   Result := E_Fail;
   if FEnabled then
   begin
-    CreateURLMoniker(nil, PWideChar(_URL), Moniker);
-    CreateBindCtx(0, BindCtx);
-    PM := Doc as IPersistMoniker;
-    Result := PM.Load(LongBool(0), Moniker, BindCtx, STGM_READ);
+    if Succeeded(CreateURLMoniker(nil, PWideChar(_URL), Moniker)) then
+    begin
+      CreateBindCtx(0, BindCtx);
+      PM := Doc as IPersistMoniker;
+      Result := PM.Load(LongBool(0), Moniker, BindCtx, STGM_READ);
+    end;
   end;
 end;
 
 function TUILess.LoadUrlFromFile: HRESULT;
 var
-  PF: IPersistfile;
+  PF: IPersistFile;
 begin
   Result := E_Fail;
   if FEnabled then
   begin
-    PF := Doc as IPersistfile;
+    PF := Doc as IPersistFile;
     Result := PF.Load(PWideChar(_URL), 0);
   end;
 end;
 
-///  UTILILIES ---------- >>>>>>>>>>>>>>>>>>>>>
+///  UTILITIES ---------- >>>>>>>>>>>>>>>>>>>>>
 
 procedure TUILess.GetImageList(ImagesList: TStrings);
 var
   ImageElement: IHTMLImgElement;
   Disp: IDispatch;
-  x: Integer;
+  i: Integer;
 begin
   if HtmlElementCollection <> nil then
   begin
-    for x := 0 to HtmlElementCollection.length - 1 do
+    for i := 0 to HTMLElementCollection.length - 1 do
     begin
-      Disp := HtmlElementCollection.item(x, 0);
-      if SUCCEEDED(Disp.QueryInterface(IHTMLImgElement, ImageElement))
+      Disp := HtmlElementCollection.item(i, 0);
+      if Succeeded(Disp.QueryInterface(IHTMLImgElement, ImageElement))
         then
         ImagesList.Add(ImageElement.src);
     end;
@@ -253,12 +259,12 @@ var
   Disp: IDispatch;
   x: Integer;
 begin
-  if HtmlElementCollection <> nil then
+  if HTMLElementCollection <> nil then
   begin
-    for x := 0 to HtmlElementCollection.length - 1 do
+    for x := 0 to HTMLElementCollection.length - 1 do
     begin
-      Disp := HtmlElementCollection.item(x, 0);
-      if SUCCEEDED(Disp.QueryInterface(IHTMLAnchorElement, Anchor))
+      Disp := HTMLElementCollection.item(x, 0);
+      if Succeeded(Disp.QueryInterface(IHTMLAnchorElement, Anchor))
         and (anchor.href <> '') then
         Anchorlist.Add(Anchor.href);
     end;
@@ -270,17 +276,17 @@ var
   Anchor: IHTMLAnchorElement;
   Link: IHTMLElement;
   Disp: IDispatch;
-  x: Integer;
+  i: Integer;
 begin
-  if HtmlElementCollection <> nil then
+  if HTMLElementCollection <> nil then
   begin
-    for x := 0 to HtmlElementCollection.length - 1 do
+    for i := 0 to HTMLElementCollection.length - 1 do
     begin
-      Disp := HtmlElementCollection.item(x, 0);
-      if SUCCEEDED(Disp.QueryInterface(IHTMLElement, Link)) and
+      Disp := HTMLElementCollection.item(i, 0);
+      if Succeeded(Disp.QueryInterface(IHTMLElement, Link)) and
         (Link.innerText <> '') then
       begin
-        if SUCCEEDED(Disp.QueryInterface(IHTMLAnchorElement, Anchor))
+        if Succeeded(Disp.QueryInterface(IHTMLAnchorElement, Anchor))
           and (Anchor.href <> '') then
           LinkList.Add(Link.innerText);
       end;
@@ -332,3 +338,4 @@ begin
 end;
 
 end.
+

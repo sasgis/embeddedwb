@@ -27,7 +27,7 @@ unit HighLightRichSyntax;
 
 interface
 
-{$I EWB_jedi.inc}
+{$I EWB.inc}
 
 uses
   Windows, SysUtils, Classes, Graphics;
