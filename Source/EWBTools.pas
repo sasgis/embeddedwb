@@ -1211,7 +1211,7 @@ begin
   try
     saBound.lLbound := 0;
     saBound.cElements := 2;
-    {$IFDEF DELPHI12_UP} 
+    {$IFDEF DELPHI16_UP}
     psaHeadFoot := SafeArrayCreate(VT_VARIANT, 1, @saBound);
     {$ELSE} 
     psaHeadFoot := SafeArrayCreate(VT_VARIANT, 1, saBound);
