@@ -2600,7 +2600,9 @@ begin
       begin
         FUserAgentInt := FUserAgent;
         Control.OnAmbientPropertyChange(DISPID_AMBIENT_USERAGENT);
+        {$IFNDEF DELPHIX_SEATTLE_UP}
         _Release;
+        {$ENDIF}
       end;
   end;
 end;

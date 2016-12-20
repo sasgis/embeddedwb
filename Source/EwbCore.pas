@@ -1344,7 +1344,9 @@ begin
     with (Application as IOleControl) do
     begin
       OnAmbientPropertyChange(DISPID_AMBIENT_USERMODE);
+      {$IFNDEF DELPHIX_SEATTLE_UP}
       _Release;
+      {$ENDIF}
     end;
 end;
 
@@ -1381,7 +1383,9 @@ begin
   with (Application as IOleControl) do
   begin
     OnAmbientPropertyChange(DISPID_AMBIENT_DLCONTROL);
+    {$IFNDEF DELPHIX_SEATTLE_UP}
     _Release;
+    {$ENDIF}
   end;
 end;
 
@@ -1445,7 +1449,9 @@ begin
   with (Application as IOleControl) do
   begin
     OnAmbientPropertyChange(DISPID_AMBIENT_DLCONTROL);
+    {$IFNDEF DELPHIX_SEATTLE_UP}
     _Release;
+    {$ENDIF}
   end;
 end;
 

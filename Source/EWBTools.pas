@@ -1012,7 +1012,9 @@ begin
       ScreenImg.SaveToFile(FileName);
       Result := True;
     finally
+      {$IFNDEF DELPHIX_SEATTLE_UP}
       ViewObject._Release;
+      {$ENDIF}
     end;
   except
     Result := False;
@@ -3165,7 +3167,9 @@ begin
     try
       Result := CmdTarget.Exec(PtrGuid, Value1, Value2, vaIn, vaOut);
     finally
+      {$IFNDEF DELPHIX_SEATTLE_UP}
       CmdTarget._Release;
+      {$ENDIF}
     end;
   except
   end;
