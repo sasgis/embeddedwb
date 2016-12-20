@@ -40,7 +40,7 @@ interface
 {$I EWB.inc}
 
 uses
-  Windows, Messages, Classes, Forms, Controls;
+  Windows, Types, Messages, Classes, Forms, Controls;
 
 // -- TEWBMouseHook ------------------------------------------------------------
 

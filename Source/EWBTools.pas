@@ -43,6 +43,7 @@ interface
 uses
   EwbAcc, Windows, Classes, ExtCtrls, ShlObj, Graphics, Dialogs, ActiveX,
 {$IFDEF DELPHI6_UP}Variants, {$ENDIF}
+  Types, {$IFDEF DELPHIXE3_UP} UITypes, {$ENDIF}
   MSHTML_EWB, SHDocVw_EWB, EmbeddedWB, URLMon;
 
 var
