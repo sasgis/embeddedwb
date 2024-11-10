@@ -93,12 +93,12 @@ begin
         if IsCM3 then
         begin
           CM3 := IContextMenu3(PCreateStruct(lParam).lpCreateParams);
-          SetWindowLong(Wnd, GWL_USERDATA, LongInt(CM3));
+          SetWindowLongPtr(Wnd, GWL_USERDATA, UIntPtr(CM3));
         end
         else
         begin
           CM2 := IContextMenu2(PCreateStruct(lParam).lpCreateParams);
-          SetWindowLong(Wnd, GWL_USERDATA, LongInt(CM2));
+          SetWindowLongPtr(Wnd, GWL_USERDATA, UIntPtr(CM2));
         end;
         Result := DefWindowProc(Wnd, Msg, wParam, lParam);
       end;
@@ -108,13 +108,13 @@ begin
       begin
         if IsCM3 then
         begin
-          CM3 := IContextMenu3(GetWindowLong(Wnd, GWL_USERDATA));
+          CM3 := IContextMenu3(GetWindowLongPtr(Wnd, GWL_USERDATA));
           Assert(CM3 <> nil, 'nil Context Menu!');
           CM3.HandleMenuMsg2(Msg, wParam, lParam, Result);
         end
         else
         begin
-          CM2 := IContextMenu2(GetWindowLong(Wnd, GWL_USERDATA));
+          CM2 := IContextMenu2(GetWindowLongPtr(Wnd, GWL_USERDATA));
           Assert(CM2 <> nil, 'Nil Context Menu!');
           CM2.HandleMenuMsg(Msg, wParam, lParam);
         end;
