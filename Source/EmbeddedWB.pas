@@ -1041,7 +1041,7 @@ begin
     if FSysListViewHandle <> 0 then
     begin
       FSysListViewObjInstance := {$IFDEF DELPHI6_UP}Classes.{$ENDIF}MakeObjectInstance(SysListViewWndProc);
-      FDefSysListViewObjProc := Pointer(GetWindowLong(FSysListViewHandle, GWL_WNDPROC));
+      FDefSysListViewObjProc := Pointer(GetWindowLongPtr(FSysListViewHandle, GWL_WNDPROC));
       SetWindowLongPtr(FSysListViewHandle, GWL_WNDPROC, UIntPtr(FSysListViewObjInstance));
       Exit;
     end;
@@ -1056,10 +1056,10 @@ begin
       FShellDocObjInstance := {$IFDEF DELPHI6_UP}Classes.{$ENDIF}MakeObjectInstance(ShellDocObjWndProc);
       // ShellDocObj
       FInetExplorerServerHandle := Windows.GetWindow(FShellDocObjViewHandle, GW_CHILD);
-      FDefShellObjViewProc := Pointer(GetWindowLong(FShellDocObjViewHandle, GWL_WNDPROC));
+      FDefShellObjViewProc := Pointer(GetWindowLongPtr(FShellDocObjViewHandle, GWL_WNDPROC));
       SetWindowLongPtr(FShellDocObjViewHandle, GWL_WNDPROC, UIntPtr(FShellDocObjInstance));
       // Internet Explorer Server
-      FDefInetExplorerServerProc := Pointer(GetWindowLong(FInetExplorerServerHandle, GWL_WNDPROC));
+      FDefInetExplorerServerProc := Pointer(GetWindowLongPtr(FInetExplorerServerHandle, GWL_WNDPROC));
       SetWindowLongPtr(FInetExplorerServerHandle, GWL_WNDPROC, UIntPtr(FInetExplorerServerInstance));
     end;
   end;
